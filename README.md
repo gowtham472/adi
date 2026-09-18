@@ -95,12 +95,18 @@ Six services, six rules. Depth over breadth.
 
 | Rule ID | Trigger | Severity | Verification signals |
 |---|---|---|---|
-| `NET-SG-001` | Security group ingress rule removed on a port a dependent resource uses | HIGH | RDS `DatabaseConnections`, ECS task errors |
-| `IAM-POL-001` | Policy statement removed from a role a compute resource assumes | HIGH | `AccessDenied` occurrences in CloudWatch Logs |
-| `ALB-HC-001` | Target group health check path, port or threshold changed | MEDIUM | ALB `UnHealthyHostCount`, `HTTPCode_ELB_5XX_Count` |
-| `ECS-RES-001` | Task definition memory or CPU reduced below the previous allocation | MEDIUM | ECS `MemoryUtilization`, task stop reasons |
-| `RDS-REP-001` | RDS property change that forces instance replacement | CRITICAL | RDS availability, `DatabaseConnections` |
-| `DEP-ORPH-001` | Resource deleted while other resources still reference it | HIGH | CloudFormation stack events |
+| `NET-SG-001` | Security group ingress permission removed or narrowed | HIGH when a consumer in the source group depends on the protected resource, MEDIUM otherwise | RDS `DatabaseConnections` falls, target `HTTPCode_Target_5XX_Count` rises |
+| `IAM-POL-001` | Permission or managed policy removed from a role that a resource assumes | HIGH | `HealthyHostCount` falls for ECS execution roles, `AccessDenied` in logs for task roles, `Errors` for Lambda |
+| `ALB-HC-001` | Target group health check setting changed | HIGH when the targets' security group blocks the new health check port, MEDIUM otherwise | `UnHealthyHostCount` rises, `HealthyHostCount` falls |
+| `ECS-RES-001` | Task or container CPU or memory reduced | MEDIUM | ECS `MemoryUtilization` or `CPUUtilization` rises |
+| `RDS-REP-001` | DB instance change that requires replacement | CRITICAL | RDS `DatabaseConnections` falls, target `HTTPCode_Target_5XX_Count` rises |
+| `DEP-ORPH-001` | Resource deleted while surviving resources depend on it, or leaving a target group with no listener | HIGH | Target group `RequestCount` falls, or failure signals of the dependents |
+
+Each rule cites the AWS documentation behind any behavior it relies on. Three findings in particular depend on AWS behavior that is easy to miss, and the signals above reflect it:
+
+- Security groups do not interrupt tracked connections when a rule changes, so a network change surfaces as connections are recycled, not at `UPDATE_COMPLETE`.
+- An ECS execution role is used when a task launches. Removing a permission from it breaks nothing that is already running.
+- An Application Load Balancer fails open when every target is unhealthy, so target health is the reliable signal for a health check change, not client errors.
 
 Adding a seventh rule is scope expansion and follows the process in `AGENTS.md`.
 
@@ -206,7 +212,7 @@ Two npm workspaces, `engine` and `web`.
 │   ├── demo/                     The ALB to ECS to RDS stack. Plain CloudFormation.
 │   └── policies/                 Analyzer read only IAM policy
 ├── scenarios/                    One directory per rule
-│   └── NN-name/                  before.yaml, after.yaml, expected.json
+│   └── NN-name/                  after.yaml and expected.json; the demo baseline is the before state
 ├── tests/
 │   ├── unit/                     Graph, diff, impact, one file per rule
 │   ├── scenarios/                End to end runs asserting expected findings
