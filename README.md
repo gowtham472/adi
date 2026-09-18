@@ -235,6 +235,7 @@ Two npm workspaces, `engine` and `web`.
 ├── infrastructure/
 │   ├── platform/                 The ADI stack (AWS SAM) and the dashboard deploy script
 │   └── demo/                     The ALB to ECS to RDS stack and its traffic generator
+├── examples/pull-request-review/ An application stack to open demonstration pull requests against
 ├── scenarios/                    One directory per rule
 │   └── NN-name/                  after.yaml and expected.json; the demo baseline is the before state
 ├── tests/
@@ -336,6 +337,8 @@ The analysis runs inside the job with the same engine, so the review needs no AW
 |---|---|
 | `ADI_FAIL_ON` | Severity at or above which the check fails: `CRITICAL` (default), `HIGH`, `MEDIUM`, `LOW` or `NONE`. A template that does not parse always fails it. |
 | `ADI_API_URL`, `ADI_DASHBOARD_URL` | Store each analysis in the deployed platform and link the comment to its impact graph. |
+
+`examples/pull-request-review/template.yaml` is an application stack for trying the review: open a pull request that edits it, for instance the database ingress port, and the workflow comments with the finding. It is a copy of the demonstration baseline, kept separate because the scenario tests compare every scenario against the baseline, so editing the baseline itself fails them.
 
 To preview the comment for the current branch without GitHub:
 
