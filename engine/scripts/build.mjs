@@ -14,8 +14,9 @@ const handlers = existsSync(handlersDir)
 rmSync(outDir, { recursive: true, force: true });
 
 // Each handler is bundled into its own directory so the SAM template can point one
-// function at one CodeUri. The AWS SDK v3 is provided by the nodejs22.x runtime, so it is
-// left external to keep the bundles small.
+// function at one CodeUri. Dependencies, including the AWS SDK, are bundled rather than
+// taken from the Lambda runtime, so deployed code runs exactly the versions it was tested
+// against.
 await Promise.all(
   handlers.map((file) =>
     build({
@@ -25,8 +26,8 @@ await Promise.all(
       platform: 'node',
       target: 'node22',
       format: 'esm',
+      minify: true,
       sourcemap: true,
-      external: ['@aws-sdk/*'],
       banner: {
         js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
       },
