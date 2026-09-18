@@ -2,7 +2,10 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { DisplayNode } from '../lib/graph.ts';
 import { ResourceGlyph } from '../lib/icons.tsx';
 
-export type ResourceNodeData = Node<{ resource: DisplayNode; vertical: boolean; inspected: boolean }, 'resource'>;
+export type ResourceNodeData = Node<
+  { resource: DisplayNode; vertical: boolean; inspected: boolean; revealDelay: number },
+  'resource'
+>;
 
 const SERVICE_LABEL: Readonly<Record<string, string>> = { ElasticLoadBalancingV2: 'ELBv2' };
 
@@ -12,7 +15,7 @@ function shortType(type: string): string {
 }
 
 export function ResourceNode({ data }: NodeProps<ResourceNodeData>) {
-  const { resource, vertical, inspected } = data;
+  const { resource, vertical, inspected, revealDelay } = data;
   const classes = [
     'resource-node',
     `state-${resource.state.toLowerCase()}`,
@@ -22,7 +25,7 @@ export function ResourceNode({ data }: NodeProps<ResourceNodeData>) {
   ].join(' ');
 
   return (
-    <div className={classes} title={resource.type}>
+    <div className={classes} title={resource.type} style={{ animationDelay: `${String(revealDelay)}ms` }}>
       {resource.state === 'CHANGED' && <span className="change-pulse" aria-hidden="true" />}
       <Handle type="target" position={vertical ? Position.Top : Position.Left} isConnectable={false} />
       <span className="node-icon">

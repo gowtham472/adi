@@ -2,7 +2,7 @@ import { BaseEdge, EdgeLabelRenderer, type Edge, type EdgeProps } from '@xyflow/
 
 type Point = { readonly x: number; readonly y: number };
 
-export type RoutedEdgeData = Edge<{ points: readonly Point[] }, 'routed'>;
+export type RoutedEdgeData = Edge<{ points: readonly Point[]; revealDelay: number }, 'routed'>;
 
 /**
  * Draws a smooth curve through the route the layout computed, so an edge bends around the
@@ -29,13 +29,22 @@ export function RoutedEdge({ id, data, sourceX, sourceY, targetX, targetY, marke
     ? data.points
     : [{ x: sourceX, y: sourceY }, { x: targetX, y: targetY }];
   const middle = points[Math.floor(points.length / 2)] as Point;
+  const animationDelay = `${String(data?.revealDelay ?? 0)}ms`;
 
   return (
     <>
-      <BaseEdge id={id} path={smoothPath(points)} {...(markerEnd === undefined ? {} : { markerEnd })} />
+      <g className="edge-reveal" style={{ animationDelay }}>
+        <BaseEdge id={id} path={smoothPath(points)} {...(markerEnd === undefined ? {} : { markerEnd })} />
+      </g>
       {typeof label === 'string' && (
         <EdgeLabelRenderer>
-          <div className="edge-label" style={{ transform: `translate(-50%, -50%) translate(${String(middle.x)}px, ${String(middle.y)}px)` }}>
+          <div
+            className="edge-label"
+            style={{
+              transform: `translate(-50%, -50%) translate(${String(middle.x)}px, ${String(middle.y)}px)`,
+              animationDelay,
+            }}
+          >
             {label}
           </div>
         </EdgeLabelRenderer>

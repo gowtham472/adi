@@ -127,7 +127,7 @@ export function NewAnalysisView({ exampleId, onCreated }: NewAnalysisViewProps) 
               </button>
             </div>
           </header>
-          <div className="example-rail" ref={railRef}>
+          <div className="example-rail stagger" ref={railRef}>
             {EXAMPLES.map((example) => {
               const type = example.changedResource === undefined ? '' : (CHANGED_TYPES[example.changedResource] ?? '');
               return (
@@ -237,7 +237,7 @@ export function NewAnalysisView({ exampleId, onCreated }: NewAnalysisViewProps) 
             <TerminalIcon weight="bold" />
           </span>
           <h2 className="rail-title">How ADI reads a change</h2>
-          <ol className="steps">
+          <ol className="steps stagger">
             {STEPS.map((step, index) => (
               <li key={step.title}>
                 <span className="step-number">{String(index + 1).padStart(2, '0')}</span>

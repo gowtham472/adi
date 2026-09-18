@@ -127,7 +127,7 @@ export function HistoryView() {
           {visible.length === 0 ? (
             <p className="empty">No analyses match these filters.</p>
           ) : (
-            <ul className="history-list">
+            <ul className="history-list stagger">
               {visible.map((analysis) => {
                 const SeverityIcon =
                   analysis.highestSeverity === undefined ? CloudCheckIcon : SEVERITY_ICONS[analysis.highestSeverity];

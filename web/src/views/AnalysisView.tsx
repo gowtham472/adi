@@ -15,6 +15,7 @@ import type { AnalysisRecord, BlastRadius, VerificationRecord } from '@adi/engin
 import { api, ApiError } from '../api/client.ts';
 import { SeverityBadge } from '../components/Badges.tsx';
 import { ChangeList } from '../components/ChangeList.tsx';
+import { CountUp } from '../components/CountUp.tsx';
 import { FindingCard } from '../components/FindingCard.tsx';
 import { ImpactGraph } from '../components/ImpactGraph.tsx';
 import { Lifecycle } from '../components/Lifecycle.tsx';
@@ -175,18 +176,24 @@ export function AnalysisView({ analysisId, initial }: { analysisId: string; init
           )}
         </header>
 
-        <dl className="stat-strip">
+        <dl className="stat-strip stagger">
           <div>
             <dt>Changes</dt>
-            <dd>{record.changeSet.changes.length}</dd>
+            <dd>
+              <CountUp value={record.changeSet.changes.length} />
+            </dd>
           </div>
           <div>
             <dt>Affected</dt>
-            <dd>{affectedCount}</dd>
+            <dd>
+              <CountUp value={affectedCount} />
+            </dd>
           </div>
           <div>
             <dt>Findings</dt>
-            <dd>{record.findings.length}</dd>
+            <dd>
+              <CountUp value={record.findings.length} />
+            </dd>
           </div>
           <div>
             <dt>Blast radius</dt>
@@ -234,7 +241,7 @@ export function AnalysisView({ analysisId, initial }: { analysisId: string; init
               Verification
             </button>
           </nav>
-          <div className="tab-body">
+          <div className="tab-body" key={tab}>
             {tab === 'CHANGES' ? (
               <ChangeList changeSet={record.changeSet} impacts={record.impacts} />
             ) : (
@@ -244,7 +251,7 @@ export function AnalysisView({ analysisId, initial }: { analysisId: string; init
         </section>
       </div>
 
-      <aside className="rail findings-rail" aria-label="Findings">
+      <aside className="rail findings-rail stagger" aria-label="Findings">
         <header className="rail-header">
           <h2 className="rail-title">Findings</h2>
           <span className="count">{record.findings.length}</span>

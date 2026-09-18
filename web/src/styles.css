@@ -121,6 +121,15 @@ svg {
   color: var(--text-muted);
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .spin {
   animation: spin 900ms linear infinite;
 }
@@ -177,7 +186,11 @@ svg[class*='tone-'] {
   font-weight: 700;
   font-size: 14.5px;
   white-space: nowrap;
-  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.button:not(:disabled):active {
+  transform: translateY(1px);
 }
 
 .button:hover {
@@ -417,6 +430,7 @@ svg[class*='tone-'] {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   min-height: calc(100vh - var(--topbar-height));
+  transition: grid-template-columns 220ms ease;
 }
 
 .sidenav {
@@ -429,6 +443,7 @@ svg[class*='tone-'] {
   padding: 30px 22px;
   border-right: 1px solid var(--border);
   background: var(--page);
+  overflow-x: hidden;
   overflow-y: auto;
 }
 
@@ -721,8 +736,6 @@ svg[class*='tone-'] {
   padding-bottom: 8px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
 }
 
 .example-card {
@@ -746,11 +759,12 @@ svg[class*='tone-'] {
   border: 2px solid var(--border);
   border-radius: var(--radius);
   background: var(--inset);
-  transition: border-color 120ms ease;
+  transition: border-color 120ms ease, transform 160ms ease;
 }
 
 .example-card:hover .example-visual {
   border-color: var(--border-strong);
+  transform: translateY(-3px);
 }
 
 .example-card.active .example-visual {
@@ -2595,6 +2609,169 @@ svg[class*='tone-'] {
 .skeleton-row {
   height: 64px;
   margin: 8px;
+}
+
+/* Scrollbars */
+
+/*
+ * Chromium and Safari take the pseudo-element styling, which allows a rounded thumb that
+ * lights up while dragged. Firefox has no pseudo-elements and takes the standard
+ * properties instead. Chromium ignores the pseudo-elements once the standard properties
+ * are set, so those are applied only where the pseudo-elements are unsupported.
+ */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--border-strong) padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-faint);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--accent);
+}
+
+/* Motion */
+
+/*
+ * Motion shows what happened rather than decorating: a page arriving, a list filling in,
+ * a change spreading through the graph, a metric moving. Entrance animations fill only
+ * backwards, so once they finish every element returns to its own resting style.
+ */
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes node-reveal {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes nudge {
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+.main > * {
+  animation: rise-in 260ms ease-out backwards;
+}
+
+.stagger > * {
+  animation: rise-in 320ms ease-out backwards;
+}
+
+.stagger > :nth-child(2) { animation-delay: 45ms; }
+.stagger > :nth-child(3) { animation-delay: 90ms; }
+.stagger > :nth-child(4) { animation-delay: 135ms; }
+.stagger > :nth-child(5) { animation-delay: 180ms; }
+.stagger > :nth-child(6) { animation-delay: 225ms; }
+.stagger > :nth-child(7) { animation-delay: 270ms; }
+.stagger > :nth-child(8) { animation-delay: 315ms; }
+.stagger > :nth-child(n + 9) { animation-delay: 360ms; }
+
+/* The graph plays the change spreading hop by hop; each element carries its own delay. */
+.resource-node {
+  animation: node-reveal 360ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+.edge-reveal,
+.edge-label {
+  animation: fade-in 420ms ease-out backwards;
+}
+
+.tab-body > *,
+.finding-body,
+.notice {
+  animation: fade-in 220ms ease-out backwards;
+}
+
+.inspector {
+  animation: slide-in-right 220ms ease-out backwards;
+}
+
+.report-dialog[open] {
+  animation: pop-in 200ms ease-out backwards;
+}
+
+.report-dialog[open]::backdrop {
+  animation: fade-in 200ms ease-out backwards;
+}
+
+.bar {
+  transform-origin: left center;
+  animation: grow-x 700ms cubic-bezier(0.2, 0.8, 0.2, 1) 120ms backwards;
+}
+
+.bar.after {
+  animation-delay: 320ms;
+}
+
+.error-banner {
+  animation: nudge 300ms ease-in-out;
+}
+
+.history-row .caret,
+.finding-header .caret {
+  transition: transform 150ms ease;
+}
+
+.history-row:hover .caret {
+  transform: translateX(3px);
 }
 
 /* Reduced motion */

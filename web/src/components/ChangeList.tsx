@@ -26,7 +26,7 @@ export function ChangeList({ changeSet, impacts }: { changeSet: ChangeSet; impac
   const impactById = new Map(impacts.map((i) => [i.resourceId, i]));
 
   return (
-    <ul className="change-list">
+    <ul className="change-list stagger">
       {changeSet.changes.map((change) => {
         const impact = impactById.get(change.resourceId);
         return (

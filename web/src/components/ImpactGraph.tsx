@@ -2,12 +2,29 @@ import { ArrowRightIcon, CornersOutIcon, CrosshairIcon, GraphIcon } from '@phosp
 import { Background, Controls, MarkerType, ReactFlow, useReactFlow } from '@xyflow/react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { AnalysisRecord, Finding } from '@adi/engine/types';
-import { buildDisplayGraph, edgeLabel, type GraphFocus } from '../lib/graph.ts';
+import { buildDisplayGraph, edgeLabel, type DisplayNode, type GraphFocus } from '../lib/graph.ts';
 import { ResourceNode, type ResourceNodeData } from './ResourceNode.tsx';
 import { RoutedEdge, type RoutedEdgeData } from './RoutedEdge.tsx';
 
 const NODE_TYPES = { resource: ResourceNode };
 const EDGE_TYPES = { routed: RoutedEdge };
+
+/** Time between one hop of the impact appearing and the next when the graph first draws. */
+const REVEAL_STEP_MS = 180;
+
+/**
+ * When each resource appears as the graph first draws: the change first, then each hop it
+ * reaches in order, then everything else. The graph plays the propagation once.
+ */
+function revealDelays(nodes: readonly DisplayNode[]): ReadonlyMap<string, number> {
+  const lastHop = Math.max(0, ...nodes.map((n) => n.depth ?? 0));
+  return new Map(
+    nodes.map((n) => {
+      const step = n.state === 'CHANGED' ? 0 : (n.depth ?? lastHop + 1);
+      return [n.id, step * REVEAL_STEP_MS];
+    }),
+  );
+}
 
 interface ImpactGraphProps {
   readonly record: AnalysisRecord;
@@ -31,6 +48,7 @@ function FocusOnInspected({ inspectedId }: { inspectedId: string | undefined }) 
 export function ImpactGraph({ record, selected, inspectedId, onInspect, inspector }: ImpactGraphProps) {
   const [focus, setFocus] = useState<GraphFocus>('IMPACT');
   const display = useMemo(() => buildDisplayGraph(record, selected, focus), [record, selected, focus]);
+  const delays = useMemo(() => revealDelays(display.nodes), [display]);
 
   const nodes = useMemo<ResourceNodeData[]>(
     () =>
@@ -38,10 +56,15 @@ export function ImpactGraph({ record, selected, inspectedId, onInspect, inspecto
         id: resource.id,
         type: 'resource',
         position: { x: resource.x, y: resource.y },
-        data: { resource, vertical: focus === 'IMPACT', inspected: resource.id === inspectedId },
+        data: {
+          resource,
+          vertical: focus === 'IMPACT',
+          inspected: resource.id === inspectedId,
+          revealDelay: delays.get(resource.id) ?? 0,
+        },
         draggable: false,
       })),
-    [display, focus, inspectedId],
+    [display, delays, focus, inspectedId],
   );
 
   const edges = useMemo<RoutedEdgeData[]>(
@@ -51,13 +74,13 @@ export function ImpactGraph({ record, selected, inspectedId, onInspect, inspecto
         type: 'routed',
         source: edge.from,
         target: edge.to,
-        data: { points: edge.points },
+        data: { points: edge.points, revealDelay: delays.get(edge.to) ?? 0 },
         animated: edge.onPath,
         className: [edge.onPath ? 'edge-path' : '', edge.dimmed ? 'edge-dimmed' : ''].join(' '),
         markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
         ...(edge.onPath ? { label: edgeLabel(edge.relationships) } : {}),
       })),
-    [display],
+    [display, delays],
   );
 
   const changedCount = display.nodes.filter((n) => n.state === 'CHANGED').length;

@@ -15,7 +15,7 @@ export function RulesView() {
         </p>
       </section>
 
-      <ul className="rule-list">
+      <ul className="rule-list stagger">
         {RULES.map((rule) => (
           <li key={rule.id} className="rule-card">
             <div className="rule-head">

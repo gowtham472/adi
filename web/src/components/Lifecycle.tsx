@@ -48,7 +48,7 @@ function steps(record: AnalysisRecord, explanationTimedOut: boolean): Step[] {
 /** Where this analysis stands in the analyze, explain, deploy, verify loop. */
 export function Lifecycle({ record, explanationTimedOut }: { record: AnalysisRecord; explanationTimedOut: boolean }) {
   return (
-    <ol className="lifecycle" aria-label="Analysis lifecycle">
+    <ol className="lifecycle stagger" aria-label="Analysis lifecycle">
       {steps(record, explanationTimedOut).map((step, index) => (
         <li key={step.title} className={`lifecycle-step step-${step.state.toLowerCase()}`}>
           <span className="lifecycle-marker" aria-hidden="true">
