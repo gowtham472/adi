@@ -2,7 +2,7 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { DisplayNode } from '../lib/graph.ts';
 import { ResourceGlyph } from '../lib/icons.tsx';
 
-export type ResourceNodeData = Node<{ resource: DisplayNode; vertical: boolean }, 'resource'>;
+export type ResourceNodeData = Node<{ resource: DisplayNode; vertical: boolean; inspected: boolean }, 'resource'>;
 
 const SERVICE_LABEL: Readonly<Record<string, string>> = { ElasticLoadBalancingV2: 'ELBv2' };
 
@@ -12,12 +12,13 @@ function shortType(type: string): string {
 }
 
 export function ResourceNode({ data }: NodeProps<ResourceNodeData>) {
-  const { resource, vertical } = data;
+  const { resource, vertical, inspected } = data;
   const classes = [
     'resource-node',
     `state-${resource.state.toLowerCase()}`,
     resource.onPath ? 'on-path' : '',
-    resource.dimmed ? 'dimmed' : '',
+    resource.dimmed && !inspected ? 'dimmed' : '',
+    inspected ? 'inspected' : '',
   ].join(' ');
 
   return (

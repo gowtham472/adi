@@ -1,6 +1,8 @@
 import {
   CaretRightIcon,
-  CircleNotchIcon,
+  CheckIcon,
+  ClipboardTextIcon,
+  DownloadSimpleIcon,
   CloudCheckIcon,
   FileCodeIcon,
   GitDiffIcon,
@@ -15,8 +17,12 @@ import { SeverityBadge } from '../components/Badges.tsx';
 import { ChangeList } from '../components/ChangeList.tsx';
 import { FindingCard } from '../components/FindingCard.tsx';
 import { ImpactGraph } from '../components/ImpactGraph.tsx';
+import { Lifecycle } from '../components/Lifecycle.tsx';
+import { NodeInspector } from '../components/NodeInspector.tsx';
+import { ReportDialog } from '../components/ReportDialog.tsx';
 import { VerificationPanel } from '../components/VerificationPanel.tsx';
 import { plural, relativeTime } from '../lib/format.ts';
+import { analysisReport } from '../lib/report.ts';
 
 const POLL_INTERVAL_MS = 3000;
 /** The explanation function times out after five minutes; past this the record will not change. */
@@ -39,6 +45,21 @@ export function AnalysisView({ analysisId, initial }: { analysisId: string; init
   const [error, setError] = useState<string | undefined>();
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [tab, setTab] = useState<Tab>('CHANGES');
+  const [inspectedId, setInspectedId] = useState<string | undefined>();
+  const [copied, setCopied] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setInspectedId(undefined);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,12 +91,7 @@ export function AnalysisView({ analysisId, initial }: { analysisId: string; init
     return <p className="error-banner">{error}</p>;
   }
   if (record === undefined) {
-    return (
-      <p className="loading">
-        <CircleNotchIcon weight="bold" className="spin" aria-hidden="true" />
-        Loading analysis
-      </p>
-    );
+    return <AnalysisSkeleton />;
   }
 
   const selected = record.findings.find((f) => f.id === selectedId) ?? record.findings[0];
@@ -88,14 +104,50 @@ export function AnalysisView({ analysisId, initial }: { analysisId: string; init
     setRecord({ ...record, verification });
   };
 
+  const copyReport = () => {
+    navigator.clipboard.writeText(analysisReport(record)).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => { setCopied(false); }, 2400);
+      },
+      () => { setReportOpen(true); },
+    );
+  };
+
+  const downloadReport = () => {
+    const url = URL.createObjectURL(new Blob([analysisReport(record)], { type: 'text/markdown' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `adi-analysis-${record.analysisId.slice(0, 8)}.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const selectFinding = (findingId: string) => {
+    setSelectedId(findingId);
+    document.getElementById(`finding-${findingId}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
   return (
     <div className="page-with-rail analysis-page">
       <div className="page-column">
-        <nav className="breadcrumb" aria-label="Breadcrumb">
-          <a href="#/analyses">Analyses</a>
-          <CaretRightIcon weight="bold" aria-hidden="true" />
-          <span>{relativeTime(record.createdAt)}</span>
-        </nav>
+        <div className="page-toolbar">
+          <nav className="breadcrumb" aria-label="Breadcrumb">
+            <a href="#/analyses">Analyses</a>
+            <CaretRightIcon weight="bold" aria-hidden="true" />
+            <span>{relativeTime(record.createdAt)}</span>
+          </nav>
+          <div className="toolbar-actions">
+            <button type="button" className="button button-outline button-small" onClick={copyReport}>
+              {copied ? <CheckIcon weight="bold" aria-hidden="true" /> : <ClipboardTextIcon weight="bold" aria-hidden="true" />}
+              {copied ? 'Copied' : 'Copy report'}
+            </button>
+            <button type="button" className="button button-outline button-small" onClick={downloadReport}>
+              <DownloadSimpleIcon weight="bold" aria-hidden="true" />
+              Markdown
+            </button>
+          </div>
+        </div>
 
         <header className="analysis-header">
           <span className="context-chip">
@@ -142,7 +194,33 @@ export function AnalysisView({ analysisId, initial }: { analysisId: string; init
           </div>
         </dl>
 
-        <ImpactGraph record={record} selected={selected} />
+        {reportOpen && (
+          <ReportDialog
+            report={analysisReport(record)}
+            onDownload={downloadReport}
+            onClose={() => { setReportOpen(false); }}
+          />
+        )}
+
+        <Lifecycle record={record} explanationTimedOut={explanationTimedOut(record)} />
+
+        <ImpactGraph
+          record={record}
+          selected={selected}
+          inspectedId={inspectedId}
+          onInspect={setInspectedId}
+          inspector={
+            inspectedId === undefined ? undefined : (
+              <NodeInspector
+                record={record}
+                resourceId={inspectedId}
+                onInspect={setInspectedId}
+                onSelectFinding={selectFinding}
+                onClose={() => { setInspectedId(undefined); }}
+              />
+            )
+          }
+        />
 
         <section className="detail-tabs">
           <nav className="tabs" aria-label="Analysis details">
@@ -190,6 +268,7 @@ export function AnalysisView({ analysisId, initial }: { analysisId: string; init
               explanationModel={record.explanation?.model}
               selected={finding.id === selected?.id}
               onSelect={() => { setSelectedId(finding.id); }}
+              onInspect={setInspectedId}
             />
           ))
         )}
@@ -231,5 +310,23 @@ function ExplanationBanner({ record }: { record: AnalysisRecord }) {
         from deterministic rules and are unaffected.
       </p>
     </section>
+  );
+}
+
+function AnalysisSkeleton() {
+  return (
+    <div className="page-with-rail analysis-page" aria-busy="true" aria-label="Loading analysis">
+      <div className="page-column">
+        <span className="skeleton skeleton-line short" />
+        <span className="skeleton skeleton-title" />
+        <span className="skeleton skeleton-block" style={{ height: 76 }} />
+        <span className="skeleton skeleton-block" style={{ height: 520 }} />
+      </div>
+      <aside className="rail findings-rail">
+        <span className="skeleton skeleton-line short" />
+        <span className="skeleton skeleton-block" style={{ height: 120 }} />
+        <span className="skeleton skeleton-block" style={{ height: 220 }} />
+      </aside>
+    </div>
   );
 }

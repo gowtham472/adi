@@ -17,14 +17,15 @@ interface FindingCardProps {
   readonly explanationModel: string | undefined;
   readonly selected: boolean;
   readonly onSelect: () => void;
+  readonly onInspect: (resourceId: string) => void;
 }
 
-export function FindingCard({ finding, explanation, explanationModel, selected, onSelect }: FindingCardProps) {
+export function FindingCard({ finding, explanation, explanationModel, selected, onSelect, onInspect }: FindingCardProps) {
   const tone = finding.severity.toLowerCase();
   const SeverityIcon = SEVERITY_ICONS[finding.severity];
 
   return (
-    <article className={`finding-card tone-border-${tone} ${selected ? 'selected' : ''}`}>
+    <article id={`finding-${finding.id}`} className={`finding-card tone-border-${tone} ${selected ? 'selected' : ''}`}>
       <button type="button" className="finding-header" onClick={onSelect} aria-expanded={selected}>
         <span className={`severity-tile tone-${tone}`}>
           <SeverityIcon weight="fill" aria-hidden="true" />
@@ -36,14 +37,6 @@ export function FindingCard({ finding, explanation, explanationModel, selected, 
             <span className="category">{finding.category.toLowerCase()}</span>
           </span>
           <span className="finding-title">{finding.title}</span>
-          <ol className="causal-path" aria-label="Causal path">
-            {finding.causalPath.map((id, index) => (
-              <li key={`${id}-${String(index)}`}>
-                {index > 0 && <CaretRightIcon weight="bold" aria-hidden="true" />}
-                <code>{id}</code>
-              </li>
-            ))}
-          </ol>
         </span>
         {selected ? (
           <CaretDownIcon weight="bold" className="caret" aria-hidden="true" />
@@ -51,6 +44,16 @@ export function FindingCard({ finding, explanation, explanationModel, selected, 
           <CaretRightIcon weight="bold" className="caret" aria-hidden="true" />
         )}
       </button>
+      <ol className="causal-path" aria-label="Causal path, select a resource to inspect it">
+        {finding.causalPath.map((id, index) => (
+          <li key={`${id}-${String(index)}`}>
+            {index > 0 && <CaretRightIcon weight="bold" aria-hidden="true" />}
+            <button type="button" onClick={() => { onInspect(id); }} title={`Inspect ${id}`}>
+              {id}
+            </button>
+          </li>
+        ))}
+      </ol>
 
       {selected && (
         <div className="finding-body">

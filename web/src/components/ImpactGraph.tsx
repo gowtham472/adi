@@ -1,6 +1,6 @@
 import { ArrowRightIcon, CornersOutIcon, CrosshairIcon, GraphIcon } from '@phosphor-icons/react';
-import { Background, Controls, MarkerType, ReactFlow } from '@xyflow/react';
-import { useMemo, useState } from 'react';
+import { Background, Controls, MarkerType, ReactFlow, useReactFlow } from '@xyflow/react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { AnalysisRecord, Finding } from '@adi/engine/types';
 import { buildDisplayGraph, edgeLabel, type GraphFocus } from '../lib/graph.ts';
 import { ResourceNode, type ResourceNodeData } from './ResourceNode.tsx';
@@ -12,9 +12,23 @@ const EDGE_TYPES = { routed: RoutedEdge };
 interface ImpactGraphProps {
   readonly record: AnalysisRecord;
   readonly selected: Finding | undefined;
+  readonly inspectedId: string | undefined;
+  readonly onInspect: (resourceId: string | undefined) => void;
+  readonly inspector?: ReactNode;
 }
 
-export function ImpactGraph({ record, selected }: ImpactGraphProps) {
+/** Brings the inspected resource into view when it is chosen from outside the graph. */
+function FocusOnInspected({ inspectedId }: { inspectedId: string | undefined }) {
+  const { fitView } = useReactFlow();
+  useEffect(() => {
+    if (inspectedId !== undefined) {
+      void fitView({ nodes: [{ id: inspectedId }], duration: 400, maxZoom: 1.1, padding: 1.2 });
+    }
+  }, [inspectedId, fitView]);
+  return null;
+}
+
+export function ImpactGraph({ record, selected, inspectedId, onInspect, inspector }: ImpactGraphProps) {
   const [focus, setFocus] = useState<GraphFocus>('IMPACT');
   const display = useMemo(() => buildDisplayGraph(record, selected, focus), [record, selected, focus]);
 
@@ -24,10 +38,10 @@ export function ImpactGraph({ record, selected }: ImpactGraphProps) {
         id: resource.id,
         type: 'resource',
         position: { x: resource.x, y: resource.y },
-        data: { resource, vertical: focus === 'IMPACT' },
+        data: { resource, vertical: focus === 'IMPACT', inspected: resource.id === inspectedId },
         draggable: false,
       })),
-    [display, focus],
+    [display, focus, inspectedId],
   );
 
   const edges = useMemo<RoutedEdgeData[]>(
@@ -89,15 +103,19 @@ export function ImpactGraph({ record, selected }: ImpactGraphProps) {
           minZoom={0.2}
           nodesConnectable={false}
           elementsSelectable={false}
+          onNodeClick={(_, node) => { onInspect(node.id); }}
+          onPaneClick={() => { onInspect(undefined); }}
           proOptions={{ hideAttribution: true }}
         >
           <Background gap={24} size={1} />
-          <Controls showInteractive={false} position="bottom-right" />
+          <Controls showInteractive={false} position="bottom-left" />
+          <FocusOnInspected inspectedId={inspectedId} />
         </ReactFlow>
+        {inspector}
       </div>
       <footer className="graph-caption">
         <ArrowRightIcon weight="bold" aria-hidden="true" />
-        Arrows point from a resource to what depends on it, the direction a change travels.
+        Arrows point from a resource to what depends on it. Select a resource to inspect it.
         {selected === undefined ? null : (
           <span className="caption-path">
             Highlighted: causal path of <code>{selected.ruleId}</code>

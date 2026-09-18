@@ -12,6 +12,7 @@ import { useRef, useState, type SyntheticEvent } from 'react';
 import type { AnalysisRecord } from '@adi/engine/types';
 import { api, ApiError, type CreateAnalysisInput } from '../api/client.ts';
 import { SeverityBadge } from '../components/Badges.tsx';
+import { CodeEditor } from '../components/CodeEditor.tsx';
 import { BASELINE_TEMPLATE, EXAMPLES } from '../lib/examples.ts';
 import { ResourceGlyph } from '../lib/icons.tsx';
 
@@ -35,10 +36,6 @@ const STEPS: readonly { readonly title: string; readonly detail: string }[] = [
   { title: 'Explain', detail: 'Claude on Amazon Bedrock explains findings it did not produce.' },
   { title: 'Verify', detail: 'After you deploy, compare CloudWatch signals before and after.' },
 ];
-
-function lineCount(text: string): number {
-  return text === '' ? 0 : text.split('\n').length;
-}
 
 interface NewAnalysisViewProps {
   readonly exampleId: string | undefined;
@@ -181,12 +178,12 @@ export function NewAnalysisView({ exampleId, onCreated }: NewAnalysisViewProps) 
           </header>
 
           <div className="editor-grid">
-            <div className="editor">
-              <div className="editor-header">
-                {source === 'STACK' ? <CloudCheckIcon weight="bold" aria-hidden="true" /> : <FileCodeIcon weight="bold" aria-hidden="true" />}
-                <span>{source === 'STACK' ? 'Deployed stack' : 'current.yaml'}</span>
-              </div>
-              {source === 'STACK' ? (
+            {source === 'STACK' ? (
+              <div className="editor">
+                <div className="editor-header">
+                  <CloudCheckIcon weight="bold" aria-hidden="true" />
+                  <span className="editor-file">Deployed stack</span>
+                </div>
                 <div className="stack-input">
                   <label htmlFor="stack-name">CloudFormation stack name</label>
                   <input id="stack-name" value={stackName} onChange={(e) => { setStackName(e.target.value); }} spellCheck={false} />
@@ -195,36 +192,25 @@ export function NewAnalysisView({ exampleId, onCreated }: NewAnalysisViewProps) 
                     with CloudWatch after you deploy the change.
                   </p>
                 </div>
-              ) : (
-                <>
-                  <textarea
-                    aria-label="Current template"
-                    value={currentTemplate}
-                    onChange={(e) => { setCurrentTemplate(e.target.value); }}
-                    placeholder="Paste the current CloudFormation template, YAML or JSON"
-                    spellCheck={false}
-                    wrap="off"
-                  />
-                  <div className="editor-footer">{lineCount(currentTemplate)} lines</div>
-                </>
-              )}
-            </div>
-
-            <div className="editor">
-              <div className="editor-header">
-                <GitDiffIcon weight="bold" aria-hidden="true" />
-                <span>proposed.yaml</span>
               </div>
-              <textarea
-                aria-label="Proposed template"
-                value={proposedTemplate}
-                onChange={(e) => { setProposedTemplate(e.target.value); }}
-                placeholder="Paste the template you intend to deploy"
-                spellCheck={false}
-                wrap="off"
+            ) : (
+              <CodeEditor
+                label="Current template"
+                fileName="current.yaml"
+                icon={FileCodeIcon}
+                value={currentTemplate}
+                placeholder="Paste the current CloudFormation template, YAML or JSON"
+                onChange={setCurrentTemplate}
               />
-              <div className="editor-footer">{lineCount(proposedTemplate)} lines</div>
-            </div>
+            )}
+            <CodeEditor
+              label="Proposed template"
+              fileName="proposed.yaml"
+              icon={GitDiffIcon}
+              value={proposedTemplate}
+              placeholder="Paste the template you intend to deploy"
+              onChange={setProposedTemplate}
+            />
           </div>
 
           {error !== undefined && <p className="error-banner">{error}</p>}
