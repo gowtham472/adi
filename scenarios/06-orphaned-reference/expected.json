@@ -1,0 +1,14 @@
+{
+  "description": "The HTTP listener is deleted, for example while moving to HTTPS, and the service's DependsOn on it is removed so the template validates. CloudFormation accepts the change, but nothing forwards traffic to the target group any more and the application becomes unreachable.",
+  "changes": [{ "resourceId": "Listener", "action": "DELETE" }],
+  "findings": [
+    {
+      "ruleId": "DEP-ORPH-001",
+      "severity": "HIGH",
+      "changedResource": "Listener",
+      "causalPath": ["Listener", "TargetGroup", "Service"],
+      "affectedResources": ["Service", "TargetGroup", "LoadBalancer"],
+      "signals": ["AWS/ApplicationELB:RequestCount"]
+    }
+  ]
+}
