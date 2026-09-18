@@ -1,0 +1,171 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  AWS Deployment Intelligence platform. An HTTP API backed by Lambda analyzes CloudFormation
+  changes, stores results in DynamoDB, explains findings with Claude on Amazon Bedrock and
+  verifies them against CloudWatch. The dashboard is served by Amplify Hosting.
+
+Parameters:
+  AnalyzedStackName:
+    Type: String
+    Default: adi-demo
+    AllowedPattern: '[A-Za-z][A-Za-z0-9-]*'
+    Description: >
+      The stack the API may read. Access is limited to this one stack rather than every stack
+      in the account.
+  BedrockModelId:
+    Type: String
+    Default: anthropic.claude-opus-5
+    Description: >
+      Claude model on the Amazon Bedrock Messages API endpoint. anthropic.claude-opus-4-8 is
+      open to all Bedrock customers if Opus 5 access has not been granted to the account.
+  AllowedOrigin:
+    Type: String
+    Default: '*'
+    Description: Origin allowed to call the API from a browser. Set to the Amplify domain once known.
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Architectures:
+      - arm64
+    Handler: index.handler
+    MemorySize: 1024
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref AnalysesTable
+        NODE_OPTIONS: --enable-source-maps
+
+Resources:
+  AnalysesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: analysisId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: analysisId
+          KeyType: HASH
+
+  # The API has no authentication, so throttling bounds what an anonymous caller can spend,
+  # including the Bedrock call each analysis with findings triggers.
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 10
+        ThrottlingRateLimit: 5
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref AllowedOrigin
+        AllowMethods:
+          - GET
+          - POST
+        AllowHeaders:
+          - content-type
+        MaxAge: 600
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../engine/dist/handlers/api
+      Timeout: 29
+      Environment:
+        Variables:
+          EXPLAIN_FUNCTION_NAME: !Ref ExplainFunction
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AnalysesTable
+        - LambdaInvokePolicy:
+            FunctionName: !Ref ExplainFunction
+        - Statement:
+            - Sid: ReadAnalyzedStack
+              Effect: Allow
+              Action:
+                - cloudformation:GetTemplate
+                - cloudformation:ListStackResources
+                - cloudformation:DescribeStackEvents
+              Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AnalyzedStackName}/*
+            # GetMetricData does not support resource level permissions.
+            - Sid: ReadMetrics
+              Effect: Allow
+              Action: cloudwatch:GetMetricData
+              Resource: '*'
+      Events:
+        CreateAnalysis:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Method: POST
+            Path: /analyses
+        ListAnalyses:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Method: GET
+            Path: /analyses
+        GetAnalysis:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Method: GET
+            Path: /analyses/{analysisId}
+        VerifyAnalysis:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Method: POST
+            Path: /analyses/{analysisId}/verification
+
+  # Invoked asynchronously so model latency is not bounded by the API Gateway timeout. One
+  # retry covers a transient failure; the function ignores analyses that are no longer
+  # pending, so a retry cannot overwrite a stored result.
+  ExplainFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../engine/dist/handlers/explain
+      Timeout: 300
+      EventInvokeConfig:
+        MaximumRetryAttempts: 1
+      Environment:
+        Variables:
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AnalysesTable
+        - Statement:
+            - Sid: InvokeClaudeOnBedrock
+              Effect: Allow
+              Action: bedrock-mantle:CreateInference
+              Resource: '*'
+
+  DashboardApp:
+    Type: AWS::Amplify::App
+    Properties:
+      Name: adi-dashboard
+      Platform: WEB
+      CustomRules:
+        - Source: /<*>
+          Target: /index.html
+          Status: '404-200'
+
+  DashboardBranch:
+    Type: AWS::Amplify::Branch
+    Properties:
+      AppId: !GetAtt DashboardApp.AppId
+      BranchName: main
+      Stage: PRODUCTION
+
+Outputs:
+  ApiUrl:
+    Description: Base URL of the ADI HTTP API
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}
+  DashboardAppId:
+    Description: Amplify app that hosts the dashboard
+    Value: !GetAtt DashboardApp.AppId
+  DashboardUrl:
+    Description: Public URL of the dashboard
+    Value: !Sub https://main.${DashboardApp.DefaultDomain}
