@@ -199,7 +199,7 @@ The contrast that carries the demonstration: the CloudFormation change set for t
 
 This scenario has been run end to end against the live stack, from the change set through to verification: `DatabaseConnections` fell from 2 to 0, target 5XX responses rose from 0 to about 233 a minute, and connection errors in the application's logs rose from 0 to about 254 a minute. Status `MATCHED`.
 
-A second scenario is included where prediction and observation do not agree, and ADI reports `UNCONFIRMED`. A tool that can report a missed prediction is more credible than one that is always right.
+Verification reports `UNCONFIRMED` whenever a predicted signal stays flat, rather than reading silence as confirmation. Scenario 04 is a caution in the other direction: it was expected to come out unconfirmed, and verified live as `MATCHED`, because peak memory utilization did rise against the halved allocation, from 2.7% to 3.7%. A match confirms that the predicted signal moved, not that the change is dangerous, which is why the finding stays MEDIUM and states only the reduction.
 
 ## 7. Repository layout
 

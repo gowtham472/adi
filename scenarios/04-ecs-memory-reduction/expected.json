@@ -1,5 +1,5 @@
 {
-  "description": "Task memory is halved from 1024 to 512 MiB, a valid Fargate combination with 256 CPU units. Whether this causes out of memory failures depends on actual usage, which the template cannot show. This scenario is expected to verify as UNCONFIRMED for the small demonstration application.",
+  "description": "Task memory is halved from 1024 to 512 MiB, a valid Fargate combination with 256 CPU units. Whether this causes out of memory failures depends on actual usage, which the template cannot show. Verified live on 18 September 2026 as MATCHED: peak memory utilization rose from 2.7% to 3.7%, the rise the signal predicts, while the application stayed far from its new limit.",
   "changes": [{ "resourceId": "TaskDefinition", "action": "UPDATE" }],
   "findings": [
     {

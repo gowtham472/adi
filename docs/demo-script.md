@@ -12,8 +12,9 @@ Timings are targets, not limits.
   Verification needs five or more minutes after the deployment, which does not fit in three
   minutes of video, so the recording shows that earlier analysis for the verification step.
   It is a real result from the same pipeline, and the video says so.
-- Scenario 04 has been run the same way, so the Unconfirmed result shown in the
-  verification step is a real one. It has not been run live yet.
+- Scenario 02 has been run the same way, so the Unconfirmed result shown in the
+  verification step is a real one. It has not been run live yet. Scenario 04, once planned
+  for this, verified live as Matched, so it cannot serve.
 - The baseline has been restored with `npm run deploy:demo` after that run, and traffic is
   flowing normally again.
 - A change set named `scenario-01` exists on `adi-demo`, created with the command in the
@@ -48,7 +49,8 @@ and say the same line: it is the designed behavior, not a workaround.
 stack update ADI found in CloudFormation's events and the three predicted signals:
 `DatabaseConnections` fell, `HTTPCode_Target_5XX_Count` rose, and connection errors appeared
 in the application's logs. Status: Matched. Then show
-the memory reduction scenario verified as Unconfirmed. Line: "When the evidence does not
+the secret permission scenario verified as Unconfirmed: running tasks already hold the
+secret, so nothing moves until a task restarts. Line: "When the evidence does not
 support the prediction, ADI says so."
 
 **2:35 to 3:00. Built on AWS.** One slide of the architecture: API Gateway, Lambda,
