@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { AnalysisRepository } from '../../engine/src/aws/dynamodb/repository.ts';
-import { summarize } from '../../engine/src/aws/dynamodb/repository.ts';
 import { HttpError } from '../../engine/src/api/http.ts';
+import { MemoryAnalysisRepository } from '../../engine/src/api/memory-repository.ts';
+import { routeRequest } from '../../engine/src/api/router.ts';
 import {
   createAnalysis,
   explainAnalysis,
@@ -9,45 +9,14 @@ import {
   verifyAnalysis,
   type ServiceDependencies,
 } from '../../engine/src/api/service.ts';
-import type { AnalysisRecord, Explanation, VerificationRecord } from '../../engine/src/types/index.ts';
 import { BASELINE_TEMPLATE_PATH, readRepositoryFile } from '../helpers.ts';
 
 const baselineBody = readRepositoryFile(BASELINE_TEMPLATE_PATH);
 const scenarioBody = readRepositoryFile('scenarios/01-rds-security-group/after.yaml');
 
-class MemoryRepository implements AnalysisRepository {
-  readonly records = new Map<string, AnalysisRecord>();
-  save(record: AnalysisRecord) {
-    this.records.set(record.analysisId, record);
-    return Promise.resolve();
-  }
-  get(id: string) {
-    return Promise.resolve(this.records.get(id));
-  }
-  list() {
-    return Promise.resolve([...this.records.values()].map(summarize));
-  }
-  private update(id: string, patch: Partial<AnalysisRecord>) {
-    const record = this.records.get(id);
-    if (record !== undefined) {
-      this.records.set(id, { ...record, ...patch });
-    }
-    return Promise.resolve();
-  }
-  recordExplanation(id: string, explanation: Explanation) {
-    return this.update(id, { explanation, explanationStatus: 'READY' });
-  }
-  recordExplanationFailure(id: string, reason: string) {
-    return this.update(id, { explanationError: reason, explanationStatus: 'FAILED' });
-  }
-  recordVerification(id: string, verification: VerificationRecord) {
-    return this.update(id, { verification });
-  }
-}
-
-function dependencies(overrides: Partial<ServiceDependencies> = {}): ServiceDependencies & { repository: MemoryRepository } {
+function dependencies(overrides: Partial<ServiceDependencies> = {}): ServiceDependencies & { repository: MemoryAnalysisRepository } {
   return {
-    repository: new MemoryRepository(),
+    repository: new MemoryAnalysisRepository(),
     fetchDeployedTemplate: () => Promise.resolve(baselineBody),
     fetchPhysicalIds: () => Promise.resolve(new Map()),
     fetchStackEvents: () => Promise.resolve([]),
@@ -57,7 +26,7 @@ function dependencies(overrides: Partial<ServiceDependencies> = {}): ServiceDepe
     now: () => new Date('2026-09-19T10:00:00Z'),
     newId: () => 'analysis-1',
     ...overrides,
-  } as ServiceDependencies & { repository: MemoryRepository };
+  } as ServiceDependencies & { repository: MemoryAnalysisRepository };
 }
 
 describe('readCreateRequest', () => {
@@ -131,5 +100,35 @@ describe('verifyAnalysis', () => {
     expect(verification.deployment.completedAt).toBe('2026-09-19T10:07:00.000Z');
     expect(verification.findings[0]?.status).toBe('UNCONFIRMED');
     expect(deps.repository.records.get('analysis-1')?.verification).toEqual(verification);
+  });
+});
+
+describe('routeRequest', () => {
+  it('creates an analysis and returns 201 with the record', async () => {
+    const response = await routeRequest(dependencies(), {
+      routeKey: 'POST /analyses',
+      isBase64Encoded: false,
+      body: JSON.stringify({ proposedTemplate: scenarioBody, currentTemplate: baselineBody }),
+    });
+    expect(response.statusCode).toBe(201);
+    expect((JSON.parse(response.body ?? '{}') as { analysisId: string }).analysisId).toBe('analysis-1');
+  });
+
+  it('returns 404 with a message for an unknown analysis', async () => {
+    const response = await routeRequest(dependencies(), {
+      routeKey: 'GET /analyses/{analysisId}',
+      isBase64Encoded: false,
+      pathParameters: { analysisId: 'missing' },
+    });
+    expect(response.statusCode).toBe(404);
+    expect(response.body).toBe(JSON.stringify({ message: 'Analysis missing was not found' }));
+  });
+
+  it('hides unexpected errors behind a generic 500', async () => {
+    const deps = dependencies();
+    deps.repository.list = () => Promise.reject(new Error('table does not exist'));
+    const response = await routeRequest(deps, { routeKey: 'GET /analyses', isBase64Encoded: false });
+    expect(response.statusCode).toBe(500);
+    expect(response.body).not.toContain('table does not exist');
   });
 });
