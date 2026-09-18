@@ -1,10 +1,12 @@
 import {
+  DescribeChangeSetCommand,
   GetTemplateCommand,
   paginateDescribeStackEvents,
   paginateListStackResources,
   type CloudFormationClient,
 } from '@aws-sdk/client-cloudformation';
 import type { StackEvent } from '../../core/verification/deployment.ts';
+import type { ReportedChange } from '../../types/index.ts';
 
 /**
  * Returns the template the stack was last deployed with. `Original` returns the template
@@ -16,6 +18,51 @@ export async function fetchDeployedTemplate(client: CloudFormationClient, stackN
     throw new Error(`Stack ${stackName} returned no template body`);
   }
   return response.TemplateBody;
+}
+
+export interface StackChangeSet {
+  /** The template the change set would deploy, as submitted. */
+  readonly template: string;
+  readonly changes: readonly ReportedChange[];
+}
+
+/**
+ * Reads a change set that has already been created on the stack: the template it would
+ * deploy and CloudFormation's replacement decision for each modified resource. Reading a
+ * change set does not execute it.
+ */
+export async function fetchChangeSet(client: CloudFormationClient, stackName: string, changeSetName: string): Promise<StackChangeSet> {
+  const changes: ReportedChange[] = [];
+  let nextToken: string | undefined;
+  do {
+    const page = await client.send(
+      new DescribeChangeSetCommand({ StackName: stackName, ChangeSetName: changeSetName, NextToken: nextToken }),
+    );
+    if (page.Status !== 'CREATE_COMPLETE') {
+      throw new Error(`Change set ${changeSetName} is ${page.Status ?? 'in an unknown state'}: ${page.StatusReason ?? 'no reason given'}`);
+    }
+    for (const { ResourceChange: change } of page.Changes ?? []) {
+      if (change?.Action !== 'Modify' || change.LogicalResourceId === undefined || change.Replacement === undefined) {
+        continue;
+      }
+      changes.push({
+        resourceId: change.LogicalResourceId,
+        replacement: change.Replacement,
+        recreationCauses: (change.Details ?? [])
+          .filter((d) => d.Target?.Attribute === 'Properties' && d.Target.RequiresRecreation === 'Always')
+          .flatMap((d) => (d.Target?.Name === undefined ? [] : [d.Target.Name])),
+      });
+    }
+    nextToken = page.NextToken;
+  } while (nextToken !== undefined);
+
+  const response = await client.send(
+    new GetTemplateCommand({ StackName: stackName, ChangeSetName: changeSetName, TemplateStage: 'Original' }),
+  );
+  if (response.TemplateBody === undefined) {
+    throw new Error(`Change set ${changeSetName} returned no template body`);
+  }
+  return { template: response.TemplateBody, changes: [...new Map(changes.map((c) => [c.resourceId, c])).values()] };
 }
 
 /** Maps each logical ID in the stack to the physical identifier CloudFormation assigned it. */

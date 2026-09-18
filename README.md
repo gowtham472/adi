@@ -64,6 +64,7 @@ This section is the contract. Anything not listed under **In scope** is not buil
 | Bedrock explanation | One Bedrock invocation per analysis, over the compressed finding set. Grounded prompt, JSON response, sanitized input. |
 | Verification | For the primary scenario, collect the declared CloudWatch signals before and after deployment and report `MATCHED`, `UNCONFIRMED` or `CONTRADICTED`. Signals are metrics, or log patterns counted per minute in a log group the stack creates. |
 | Web dashboard | Three views: graph, findings, verification. Deployed on Amplify Hosting with a public URL. |
+| Change set input | Analyze a CloudFormation change set already created on the stack: the proposed template comes from the change set, and CloudFormation's `Replacement: True` or `False` for each modified resource replaces the documented replacement table. `Conditional` leaves the table's answer. Reading never executes the change set. Added after the core build plan was complete. |
 | Pull request review | A GitHub Actions workflow analyzes every CloudFormation template a pull request adds or modifies, comments with the findings, and fails the check at a configurable severity. Added after the core build plan was complete. |
 | Demo environment | One live ALB to ECS to RDS stack in a single region, deployed once and kept stable. |
 
@@ -305,6 +306,16 @@ New to AWS? [docs/aws-setup.md](docs/aws-setup.md) covers everything from an emp
    ```
 
 6. Wait five minutes for connections to recycle and metrics to arrive, then choose Verify deployment in the analysis. Restore the healthy baseline afterwards with `npm run deploy:demo`.
+
+### Analyzing a change set
+
+A change set shows what CloudFormation will do without doing it, and ADI can read one instead of a pasted template. Create it, then choose **Read a change set** in the dashboard and enter the stack and change set names:
+
+```bash
+aws cloudformation create-change-set --stack-name adi-demo --change-set-name scenario-01 --template-body file://scenarios/01-rds-security-group/after.yaml --capabilities CAPABILITY_IAM --region ap-south-1
+```
+
+Executing the change set is the deployment, and verification then works as it does for any analysis against a stack.
 
 ### Reviewing pull requests
 

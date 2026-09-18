@@ -10,6 +10,7 @@ import type {
   CfnTemplate,
   Explanation,
   Finding,
+  ReportedChange,
   SignalObservation,
   TimeWindow,
   VerificationRecord,
@@ -21,6 +22,7 @@ import { HttpError } from './http.ts';
 export interface ServiceDependencies {
   readonly repository: AnalysisRepository;
   fetchDeployedTemplate(stackName: string): Promise<string>;
+  fetchChangeSet(stackName: string, changeSetName: string): Promise<{ template: string; changes: readonly ReportedChange[] }>;
   fetchPhysicalIds(stackName: string): Promise<ReadonlyMap<string, string>>;
   fetchStackEvents(stackName: string, since: Date): Promise<StackEvent[]>;
   observeSignals(
@@ -37,17 +39,34 @@ export interface ServiceDependencies {
 /** CloudFormation stack names: a letter followed by letters, digits or hyphens. */
 const STACK_NAME = /^[A-Za-z][A-Za-z0-9-]{0,127}$/;
 
-export interface CreateAnalysisRequest {
-  readonly proposedTemplate: string;
-  readonly currentTemplate?: string;
-  readonly stackName?: string;
-}
+/** Change set names follow the stack name rule; a change set ARN is accepted as well. */
+const CHANGE_SET = /^([A-Za-z][A-Za-z0-9-]{0,127}|arn:aws[a-z-]*:cloudformation:[a-z0-9-]+:\d{12}:changeSet\/[A-Za-z][A-Za-z0-9-]{0,127}\/[a-f0-9-]+)$/;
+
+/**
+ * The proposed template comes from the request, or from a change set already created on
+ * the stack. The current template comes from the request or from the deployed stack.
+ */
+export type CreateAnalysisRequest =
+  | { readonly proposedTemplate: string; readonly currentTemplate?: string; readonly stackName?: string }
+  | { readonly changeSetName: string; readonly stackName: string };
 
 export function readCreateRequest(body: unknown): CreateAnalysisRequest {
   if (typeof body !== 'object' || body === null) {
     throw new HttpError(400, 'Request body must be a JSON object');
   }
-  const { proposedTemplate, currentTemplate, stackName } = body as Record<string, unknown>;
+  const { proposedTemplate, currentTemplate, stackName, changeSetName } = body as Record<string, unknown>;
+  if (changeSetName !== undefined) {
+    if (typeof changeSetName !== 'string' || !CHANGE_SET.test(changeSetName)) {
+      throw new HttpError(400, 'changeSetName must be a change set name or ARN');
+    }
+    if (typeof stackName !== 'string' || !STACK_NAME.test(stackName)) {
+      throw new HttpError(400, 'Reading a change set needs the stackName it was created on');
+    }
+    if (proposedTemplate !== undefined || currentTemplate !== undefined) {
+      throw new HttpError(400, 'A change set supplies both templates; send changeSetName without templates');
+    }
+    return { changeSetName, stackName };
+  }
   if (typeof proposedTemplate !== 'string' || proposedTemplate.trim() === '') {
     throw new HttpError(400, 'proposedTemplate is required');
   }
@@ -78,25 +97,42 @@ function parseOrReject(body: string, label: string): CfnTemplate {
   }
 }
 
+async function readFromStack<T>(what: string, read: () => Promise<T>): Promise<T> {
+  try {
+    return await read();
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new HttpError(400, `Could not read ${what}: ${reason}`);
+  }
+}
+
 export async function createAnalysis(deps: ServiceDependencies, request: CreateAnalysisRequest): Promise<AnalysisRecord> {
-  let currentBody = request.currentTemplate;
-  if (currentBody === undefined && request.stackName !== undefined) {
-    try {
-      currentBody = await deps.fetchDeployedTemplate(request.stackName);
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      throw new HttpError(400, `Could not read the deployed template of ${request.stackName}: ${reason}`);
-    }
+  const { stackName } = request;
+  let currentBody = 'currentTemplate' in request ? request.currentTemplate : undefined;
+  if (currentBody === undefined && stackName !== undefined) {
+    currentBody = await readFromStack(`the deployed template of ${stackName}`, () => deps.fetchDeployedTemplate(stackName));
+  }
+  let proposedBody: string;
+  let reported: readonly ReportedChange[] = [];
+  if ('changeSetName' in request) {
+    const changeSet = await readFromStack(`change set ${request.changeSetName} on ${request.stackName}`, () =>
+      deps.fetchChangeSet(request.stackName, request.changeSetName),
+    );
+    proposedBody = changeSet.template;
+    reported = changeSet.changes;
+  } else {
+    proposedBody = request.proposedTemplate;
   }
   const current = parseOrReject(currentBody as string, 'current');
-  const proposed = parseOrReject(request.proposedTemplate, 'proposed');
-  const result = analyzeTemplates(current, proposed);
+  const proposed = parseOrReject(proposedBody, 'proposed');
+  const result = analyzeTemplates(current, proposed, reported);
 
   const record: AnalysisRecord = {
     ...result,
     analysisId: deps.newId(),
     createdAt: deps.now().toISOString(),
-    ...(request.stackName === undefined ? {} : { stackName: request.stackName }),
+    ...(stackName === undefined ? {} : { stackName }),
+    ...('changeSetName' in request ? { changeSetName: request.changeSetName } : {}),
     explanationStatus: result.findings.length > 0 ? 'PENDING' : 'NOT_REQUIRED',
   };
 

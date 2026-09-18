@@ -20,6 +20,7 @@ const unavailable = (what: string) => Promise.reject(new Error(`${what} requires
 const deps: ServiceDependencies = {
   repository: new MemoryAnalysisRepository(),
   fetchDeployedTemplate: () => unavailable('Reading a deployed stack'),
+  fetchChangeSet: () => unavailable('Reading a change set'),
   fetchPhysicalIds: () => unavailable('Resolving stack resources'),
   fetchStackEvents: () => unavailable('Reading stack events'),
   observeSignals: () => unavailable('Collecting CloudWatch signals'),

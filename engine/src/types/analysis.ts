@@ -51,6 +51,8 @@ export interface AnalysisRecord extends AnalysisResult {
   readonly analysisId: string;
   readonly createdAt: string;
   readonly stackName?: string;
+  /** The CloudFormation change set the proposed template was read from, if any. */
+  readonly changeSetName?: string;
   readonly explanationStatus: ExplanationStatus;
   readonly explanation?: Explanation;
   readonly explanationError?: string;

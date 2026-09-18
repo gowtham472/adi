@@ -3,7 +3,7 @@ export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 export type FindingCategory = 'NETWORK' | 'IAM' | 'AVAILABILITY' | 'CAPACITY' | 'DEPENDENCY';
 
 /** Where a fact was established. Every piece of evidence names exactly one source. */
-export type EvidenceSource = 'TEMPLATE' | 'DIFF' | 'GRAPH' | 'AWS_DOCUMENTATION';
+export type EvidenceSource = 'TEMPLATE' | 'DIFF' | 'GRAPH' | 'CHANGE_SET' | 'AWS_DOCUMENTATION';
 
 export interface Evidence {
   readonly source: EvidenceSource;

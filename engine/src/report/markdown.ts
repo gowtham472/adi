@@ -12,6 +12,7 @@ const EVIDENCE_LABEL = {
   DIFF: 'Diff',
   GRAPH: 'Graph',
   TEMPLATE: 'Template',
+  CHANGE_SET: 'Change set',
   AWS_DOCUMENTATION: 'AWS docs',
 } as const;
 
@@ -82,7 +83,7 @@ export function analysisReport(record: AnalysisRecord): string {
     '',
     record.stackName === undefined
       ? `Template comparison, analyzed ${record.createdAt}.`
-      : `Against stack \`${record.stackName}\`, analyzed ${record.createdAt}.`,
+      : `Against stack \`${record.stackName}\`${record.changeSetName === undefined ? '' : `, change set \`${record.changeSetName}\``}, analyzed ${record.createdAt}.`,
     '',
     ...changesTable(record.changeSet.changes),
   ];

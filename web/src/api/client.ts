@@ -35,11 +35,9 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
   return payload as T;
 }
 
-export interface CreateAnalysisInput {
-  readonly proposedTemplate: string;
-  readonly currentTemplate?: string;
-  readonly stackName?: string;
-}
+export type CreateAnalysisInput =
+  | { readonly proposedTemplate: string; readonly currentTemplate?: string; readonly stackName?: string }
+  | { readonly changeSetName: string; readonly stackName: string };
 
 export const api = {
   createAnalysis: (input: CreateAnalysisInput) => request<AnalysisRecord>('POST', '/analyses', input),

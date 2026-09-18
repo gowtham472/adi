@@ -96,7 +96,11 @@ Resources:
                 - cloudformation:GetTemplate
                 - cloudformation:ListStackResources
                 - cloudformation:DescribeStackEvents
-              Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AnalyzedStackName}/*
+                - cloudformation:DescribeChangeSet
+              Resource:
+                - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AnalyzedStackName}/*
+                # Change sets are their own resource type. Only reading them is allowed.
+                - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:changeSet/*
             # GetMetricData does not support resource level permissions.
             - Sid: ReadMetrics
               Effect: Allow

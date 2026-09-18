@@ -6,6 +6,7 @@ import {
   CloudCheckIcon,
   FileCodeIcon,
   GitDiffIcon,
+  ListChecksIcon,
   TerminalIcon,
 } from '@phosphor-icons/react';
 import { useRef, useState, type SyntheticEvent } from 'react';
@@ -16,7 +17,7 @@ import { CodeEditor } from '../components/CodeEditor.tsx';
 import { BASELINE_TEMPLATE, EXAMPLES } from '../lib/examples.ts';
 import { ResourceGlyph } from '../lib/icons.tsx';
 
-type CurrentSource = 'TEMPLATE' | 'STACK';
+type CurrentSource = 'TEMPLATE' | 'STACK' | 'CHANGE_SET';
 
 /** Types of the resources the scenarios change in the demonstration stack, for card icons. */
 const CHANGED_TYPES: Readonly<Record<string, string>> = {
@@ -46,6 +47,7 @@ export function NewAnalysisView({ exampleId, onCreated }: NewAnalysisViewProps) 
   const initialExample = EXAMPLES.find((e) => e.id === exampleId);
   const [source, setSource] = useState<CurrentSource>('TEMPLATE');
   const [stackName, setStackName] = useState('adi-demo');
+  const [changeSetName, setChangeSetName] = useState('');
   const [currentTemplate, setCurrentTemplate] = useState(initialExample === undefined ? '' : BASELINE_TEMPLATE);
   const [proposedTemplate, setProposedTemplate] = useState(initialExample?.proposedTemplate ?? '');
   const [selectedId, setSelectedId] = useState<string | undefined>(initialExample?.id);
@@ -72,7 +74,11 @@ export function NewAnalysisView({ exampleId, onCreated }: NewAnalysisViewProps) 
   const submit = async (event: SyntheticEvent) => {
     event.preventDefault();
     const input: CreateAnalysisInput =
-      source === 'STACK' ? { stackName: stackName.trim(), proposedTemplate } : { currentTemplate, proposedTemplate };
+      source === 'CHANGE_SET'
+        ? { stackName: stackName.trim(), changeSetName: changeSetName.trim() }
+        : source === 'STACK'
+          ? { stackName: stackName.trim(), proposedTemplate }
+          : { currentTemplate, proposedTemplate };
     setSubmitting(true);
     setError(undefined);
     try {
@@ -84,7 +90,9 @@ export function NewAnalysisView({ exampleId, onCreated }: NewAnalysisViewProps) 
   };
 
   const ready =
-    proposedTemplate.trim() !== '' && (source === 'STACK' ? stackName.trim() !== '' : currentTemplate.trim() !== '');
+    source === 'CHANGE_SET'
+      ? stackName.trim() !== '' && changeSetName.trim() !== ''
+      : proposedTemplate.trim() !== '' && (source === 'STACK' ? stackName.trim() !== '' : currentTemplate.trim() !== '');
   const selected = EXAMPLES.find((e) => e.id === selectedId);
 
   return (
@@ -174,44 +182,78 @@ export function NewAnalysisView({ exampleId, onCreated }: NewAnalysisViewProps) 
                 <CloudCheckIcon weight="bold" aria-hidden="true" />
                 Compare with a stack
               </button>
+              <button type="button" className={source === 'CHANGE_SET' ? 'active' : ''} onClick={() => { setSource('CHANGE_SET'); }}>
+                <ListChecksIcon weight="bold" aria-hidden="true" />
+                Read a change set
+              </button>
             </div>
           </header>
 
-          <div className="editor-grid">
-            {source === 'STACK' ? (
-              <div className="editor">
-                <div className="editor-header">
-                  <CloudCheckIcon weight="bold" aria-hidden="true" />
-                  <span className="editor-file">Deployed stack</span>
-                </div>
-                <div className="stack-input">
-                  <label htmlFor="stack-name">CloudFormation stack name</label>
-                  <input id="stack-name" value={stackName} onChange={(e) => { setStackName(e.target.value); }} spellCheck={false} />
-                  <p className="hint">
-                    ADI reads the template the stack was last deployed with. An analysis against a stack can be verified
-                    with CloudWatch after you deploy the change.
-                  </p>
-                </div>
+          {source === 'CHANGE_SET' ? (
+            <div className="editor change-set-panel">
+              <div className="editor-header">
+                <ListChecksIcon weight="bold" aria-hidden="true" />
+                <span className="editor-file">CloudFormation change set</span>
               </div>
-            ) : (
+              <div className="stack-input change-set-fields">
+                <div>
+                  <label htmlFor="change-set-stack">Stack name</label>
+                  <input id="change-set-stack" value={stackName} onChange={(e) => { setStackName(e.target.value); }} spellCheck={false} />
+                </div>
+                <div>
+                  <label htmlFor="change-set-name">Change set name or ARN</label>
+                  <input
+                    id="change-set-name"
+                    value={changeSetName}
+                    onChange={(e) => { setChangeSetName(e.target.value); }}
+                    placeholder="scenario-01"
+                    spellCheck={false}
+                  />
+                </div>
+                <p className="hint">
+                  ADI reads the template the change set would deploy and uses CloudFormation's own replacement decision
+                  for each modified resource. Reading a change set does not execute it. Create one with{' '}
+                  <code>aws cloudformation create-change-set</code>.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="editor-grid">
+              {source === 'STACK' ? (
+                <div className="editor">
+                  <div className="editor-header">
+                    <CloudCheckIcon weight="bold" aria-hidden="true" />
+                    <span className="editor-file">Deployed stack</span>
+                  </div>
+                  <div className="stack-input">
+                    <label htmlFor="stack-name">CloudFormation stack name</label>
+                    <input id="stack-name" value={stackName} onChange={(e) => { setStackName(e.target.value); }} spellCheck={false} />
+                    <p className="hint">
+                      ADI reads the template the stack was last deployed with. An analysis against a stack can be verified
+                      with CloudWatch after you deploy the change.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <CodeEditor
+                  label="Current template"
+                  fileName="current.yaml"
+                  icon={FileCodeIcon}
+                  value={currentTemplate}
+                  placeholder="Paste the current CloudFormation template, YAML or JSON"
+                  onChange={setCurrentTemplate}
+                />
+              )}
               <CodeEditor
-                label="Current template"
-                fileName="current.yaml"
-                icon={FileCodeIcon}
-                value={currentTemplate}
-                placeholder="Paste the current CloudFormation template, YAML or JSON"
-                onChange={setCurrentTemplate}
+                label="Proposed template"
+                fileName="proposed.yaml"
+                icon={GitDiffIcon}
+                value={proposedTemplate}
+                placeholder="Paste the template you intend to deploy"
+                onChange={setProposedTemplate}
               />
-            )}
-            <CodeEditor
-              label="Proposed template"
-              fileName="proposed.yaml"
-              icon={GitDiffIcon}
-              value={proposedTemplate}
-              placeholder="Paste the template you intend to deploy"
-              onChange={setProposedTemplate}
-            />
-          </div>
+            </div>
+          )}
 
           {error !== undefined && <p className="error-banner">{error}</p>}
 
@@ -225,7 +267,11 @@ export function NewAnalysisView({ exampleId, onCreated }: NewAnalysisViewProps) 
               {submitting ? 'Analyzing' : 'Analyze change'}
             </button>
             <span className="muted">
-              {source === 'STACK' ? `Compares against the deployed stack ${stackName}` : 'Compares the two templates above'}
+              {source === 'CHANGE_SET'
+                ? `Reads change set ${changeSetName.trim() === '' ? '' : `${changeSetName.trim()} `}on stack ${stackName}`
+                : source === 'STACK'
+                  ? `Compares against the deployed stack ${stackName}`
+                  : 'Compares the two templates above'}
             </span>
           </div>
         </section>

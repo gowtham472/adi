@@ -18,6 +18,7 @@ function dependencies(overrides: Partial<ServiceDependencies> = {}): ServiceDepe
   return {
     repository: new MemoryAnalysisRepository(),
     fetchDeployedTemplate: () => Promise.resolve(baselineBody),
+    fetchChangeSet: () => Promise.reject(new Error('not configured')),
     fetchPhysicalIds: () => Promise.resolve(new Map()),
     fetchStackEvents: () => Promise.resolve([]),
     observeSignals: (signals) => Promise.resolve(signals.map((signal) => ({ signal, movement: 'NO_DATA' as const }))),

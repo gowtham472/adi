@@ -34,10 +34,16 @@ export const rdsRep001: Rule = {
       propertyPath: property,
     }));
     evidence.push(
-      documentationEvidence(
-        `${change.replacementCauses.join(', ')} ${change.replacementCauses.length === 1 ? 'is' : 'are'} documented as "Update requires: Replacement" for AWS::RDS::DBInstance`,
-        DB_INSTANCE_URL,
-      ),
+      change.replacementSource === 'CHANGE_SET'
+        ? {
+            source: 'CHANGE_SET',
+            fact: `The CloudFormation change set reports Replacement: True for ${database}, caused by ${change.replacementCauses.join(', ')}`,
+            resourceId: database,
+          }
+        : documentationEvidence(
+            `${change.replacementCauses.join(', ')} ${change.replacementCauses.length === 1 ? 'is' : 'are'} documented as "Update requires: Replacement" for AWS::RDS::DBInstance`,
+            DB_INSTANCE_URL,
+          ),
       documentationEvidence(
         'Replacement creates a new DB instance with a new physical ID, points dependent resources at it, and then removes the old instance.',
         UPDATE_BEHAVIOR_URL,

@@ -6,7 +6,7 @@ import { CloudWatchLogsClient } from '@aws-sdk/client-cloudwatch-logs';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { InvokeCommand, LambdaClient } from '@aws-sdk/client-lambda';
 import { explainFindings } from '../aws/bedrock/explain.ts';
-import { fetchDeployedTemplate, fetchPhysicalIds, fetchStackEvents } from '../aws/cloudformation/stack.ts';
+import { fetchChangeSet, fetchDeployedTemplate, fetchPhysicalIds, fetchStackEvents } from '../aws/cloudformation/stack.ts';
 import { observeSignals } from '../aws/cloudwatch/collect.ts';
 import { DynamoAnalysisRepository } from '../aws/dynamodb/repository.ts';
 import type { ServiceDependencies } from './service.ts';
@@ -34,6 +34,7 @@ export function createDependencies(): ServiceDependencies {
   return {
     repository,
     fetchDeployedTemplate: (stackName) => fetchDeployedTemplate(cloudFormation, stackName),
+    fetchChangeSet: (stackName, changeSetName) => fetchChangeSet(cloudFormation, stackName, changeSetName),
     fetchPhysicalIds: (stackName) => fetchPhysicalIds(cloudFormation, stackName),
     fetchStackEvents: (stackName, since) => fetchStackEvents(cloudFormation, stackName, since),
     observeSignals: (signals, physicalIds, windows) => observeSignals({ metrics: cloudWatch, logs: cloudWatchLogs }, signals, physicalIds, windows),

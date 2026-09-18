@@ -11,6 +11,7 @@ import {
   GlobeIcon,
   GraphIcon,
   BookOpenIcon,
+  ListChecksIcon,
   InfoIcon,
   KeyIcon,
   LightningIcon,
@@ -75,6 +76,7 @@ export const EVIDENCE_ICONS: Readonly<Record<EvidenceSource, Icon>> = {
   DIFF: GitDiffIcon,
   GRAPH: GraphIcon,
   TEMPLATE: FileCodeIcon,
+  CHANGE_SET: ListChecksIcon,
   AWS_DOCUMENTATION: BookOpenIcon,
 };
 
@@ -82,6 +84,7 @@ export const EVIDENCE_LABELS: Readonly<Record<EvidenceSource, string>> = {
   DIFF: 'Diff',
   GRAPH: 'Graph',
   TEMPLATE: 'Template',
+  CHANGE_SET: 'Change set',
   AWS_DOCUMENTATION: 'AWS docs',
 };
 

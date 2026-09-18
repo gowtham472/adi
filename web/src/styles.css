@@ -970,6 +970,18 @@ svg[class*='tone-'] {
   font-size: 13.5px;
 }
 
+.change-set-fields {
+  gap: 18px;
+  min-height: 0;
+  max-width: 640px;
+}
+
+.change-set-fields > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .submit-row {
   display: flex;
   flex-wrap: wrap;
@@ -1673,6 +1685,7 @@ svg[class*='tone-'] {
 .evidence-timeline li.source-diff { --source: var(--changed); }
 .evidence-timeline li.source-graph { --source: var(--path); }
 .evidence-timeline li.source-template { --source: var(--affected); }
+.evidence-timeline li.source-change_set { --source: var(--text-muted); }
 .evidence-timeline li.source-aws_documentation { --source: var(--matched); }
 
 .evidence-node {

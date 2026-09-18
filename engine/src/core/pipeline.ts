@@ -1,4 +1,5 @@
-import type { AnalysisResult, CfnTemplate } from '../types/index.ts';
+import type { AnalysisResult, CfnTemplate, ReportedChange } from '../types/index.ts';
+import { applyReportedReplacements } from './diff/change-set.ts';
 import { compareTemplates } from './diff/compare.ts';
 import { buildDependencyGraph, mergeGraphs } from './graph/build.ts';
 import { GraphIndex } from './graph/query.ts';
@@ -8,9 +9,15 @@ import type { RuleContext } from './rules/rule.ts';
 
 /**
  * Runs the deterministic analysis: diff, graph, impact and rules. The result contains
- * nothing produced by a model and is identical for identical inputs.
+ * nothing produced by a model and is identical for identical inputs. When the proposed
+ * template comes from a CloudFormation change set, its replacement decisions are applied
+ * to the diff before impact and rules run.
  */
-export function analyzeTemplates(current: CfnTemplate, proposed: CfnTemplate): AnalysisResult {
+export function analyzeTemplates(
+  current: CfnTemplate,
+  proposed: CfnTemplate,
+  reported: readonly ReportedChange[] = [],
+): AnalysisResult {
   const currentGraph = buildDependencyGraph(current);
   const proposedGraph = buildDependencyGraph(proposed);
   const graph = mergeGraphs(currentGraph, proposedGraph);
@@ -18,7 +25,7 @@ export function analyzeTemplates(current: CfnTemplate, proposed: CfnTemplate): A
   const currentIndex = new GraphIndex(currentGraph);
   const proposedIndex = new GraphIndex(proposedGraph);
 
-  const changeSet = compareTemplates(current, proposed);
+  const changeSet = applyReportedReplacements(compareTemplates(current, proposed), reported);
   const impacts = propagateChanges(index, changeSet);
   const impactById = new Map(impacts.map((impact) => [impact.resourceId, impact]));
 

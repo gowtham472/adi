@@ -162,6 +162,11 @@ export function AnalysisView({ analysisId, initial }: { analysisId: string; init
               <>
                 <CloudCheckIcon weight="bold" aria-hidden="true" />
                 Stack <code>{record.stackName}</code>
+                {record.changeSetName !== undefined && (
+                  <>
+                    , change set <code>{record.changeSetName}</code>
+                  </>
+                )}
               </>
             )}
           </span>
