@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { describeModelError } from '../../engine/src/aws/bedrock/errors.ts';
 import { buildFindingsPayload } from '../../engine/src/aws/bedrock/prompt.ts';
 import { redactSecrets } from '../../engine/src/aws/bedrock/sanitize.ts';
 import { ExplanationRejected, validateExplanation } from '../../engine/src/aws/bedrock/validate.ts';
@@ -75,5 +76,26 @@ describe('Bedrock explanation', () => {
     expect(() => validateExplanation('I cannot help with that.', findings, resourceIds)).toThrow(
       'The response did not contain a JSON object',
     );
+  });
+});
+
+describe('describeModelError', () => {
+  const apiError = (status: number, message: string) =>
+    Object.assign(new Error(`${String(status)} {"type":"error"}`), { status, error: { type: 'error', error: { type: 'x', message } } });
+
+  it('explains missing model access without the raw response body', () => {
+    const text = describeModelError(apiError(403, 'anthropic.claude-opus-5 is not available for this account.'));
+    expect(text).toMatch(/^Claude is not enabled for this AWS account/);
+    expect(text).not.toContain('{');
+  });
+
+  it('uses the API message for other client errors', () => {
+    expect(describeModelError(apiError(400, 'max_tokens is too large'))).toBe(
+      'Amazon Bedrock rejected the request: max_tokens is too large',
+    );
+  });
+
+  it('keeps the message of errors that are not API errors', () => {
+    expect(describeModelError(new Error('socket hang up'))).toBe('socket hang up');
   });
 });

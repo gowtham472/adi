@@ -1,5 +1,6 @@
 import type { AnthropicBedrockMantle } from '@anthropic-ai/bedrock-sdk';
 import type { Explanation, Finding } from '../../types/index.ts';
+import { describeModelError } from './errors.ts';
 import { buildFindingsPayload, SYSTEM_PROMPT } from './prompt.ts';
 import { ExplanationRejected, validateExplanation } from './validate.ts';
 
@@ -16,13 +17,17 @@ export async function explainFindings(
   findings: readonly Finding[],
   resourceIds: readonly string[],
 ): Promise<Explanation> {
-  const response = await client.messages.create({
-    model,
-    max_tokens: 16000,
-    system: SYSTEM_PROMPT,
-    output_config: { effort: 'medium' },
-    messages: [{ role: 'user', content: buildFindingsPayload(findings) }],
-  });
+  const response = await client.messages
+    .create({
+      model,
+      max_tokens: 16000,
+      system: SYSTEM_PROMPT,
+      output_config: { effort: 'medium' },
+      messages: [{ role: 'user', content: buildFindingsPayload(findings) }],
+    })
+    .catch((error: unknown) => {
+      throw new Error(describeModelError(error), { cause: error });
+    });
 
   if (response.stop_reason === 'refusal') {
     throw new ExplanationRejected('The model declined to explain these findings');

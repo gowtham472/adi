@@ -152,7 +152,7 @@ export async function explainAnalysis(deps: ServiceDependencies, analysisId: str
     await deps.repository.recordExplanation(analysisId, explanation);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    console.error('Explanation failed', { analysisId, reason });
+    console.error('Explanation failed', { analysisId, reason, cause: error instanceof Error ? error.cause : undefined });
     await deps.repository.recordExplanationFailure(analysisId, reason);
   }
 }
