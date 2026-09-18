@@ -30,12 +30,14 @@ New AWS accounts choose between two plans:
 | | Free plan | Paid plan |
 |---|---|---|
 | Sign up credit | US$100, plus up to US$100 for activities | The same |
-| Redeem promotional codes, such as the hackathon's US$100 | **No** | Yes |
 | When credits run out or after 6 months | The account closes. Data is kept 90 days, then deleted | Usage is charged to your card |
 | Some services and features | Restricted | All available |
 
-**This is why you cannot claim the hackathon credit.** AWS does not accept promotional codes
-on Free plan accounts. To redeem it, you would have to upgrade to the Paid plan first.
+**The hackathon credit.** AWS's billing documentation says Free plan accounts are not
+eligible for promotional credits. In practice, the hackathon's US$100 code redeemed on a
+Free plan account in September 2026, so try it before upgrading. In the console, go to
+**Billing and Cost Management → Credits** and choose **Redeem credit**. Promotional credits
+do not cover AWS Marketplace charges, which may include Claude on Bedrock.
 
 ### What to do
 
@@ -43,7 +45,7 @@ on Free plan accounts. To redeem it, you would have to upgrade to the Paid plan 
    and choose **Credits** in the left menu. You should see the sign up credit.
 2. **Stay on the Free plan for now.** The sign up credit is enough for this project.
 3. Do the check in section 6. If Claude answers, you do not need to change anything.
-4. Upgrade only if section 6 fails because of your plan, or if you want the hackathon code.
+4. Upgrade only if section 6 fails because of your plan, or if a promotional code is refused.
    On the console home page, or at **Billing and Cost Management → Free Tier**, choose
    **Upgrade plan**. Your remaining credit carries over to the Paid plan. The upgrade cannot
    be undone, and anything the credit does not cover is charged to your card, so set up the
