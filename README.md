@@ -370,3 +370,9 @@ Status on 18 September: every objective through 19 September is met except Bedro
 ## 12. Contributing
 
 Read `AGENTS.md` before making any change. It defines the engineering standards, the verification required before every commit, and the process for anything that touches scope.
+
+## 13. Tools and license
+
+Built for the WeMakeDevs x AWS First Commit hackathon, 17 to 20 September 2026. Claude Code (Anthropic) was used as an AI pair programmer throughout; commits it contributed to carry a `Co-Authored-By` trailer. Third party code comes in only as open source dependencies declared in the `package.json` files.
+
+Released under the MIT License. See [LICENSE](LICENSE).
