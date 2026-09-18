@@ -1,10 +1,11 @@
 import type { Finding, Severity } from '../../types/index.ts';
 import { albHc001 } from './alb-hc-001.ts';
+import { ecsRes001 } from './ecs-res-001.ts';
 import { iamPol001 } from './iam-pol-001.ts';
 import { netSg001 } from './net-sg-001.ts';
 import type { Rule, RuleContext } from './rule.ts';
 
-export const RULES: readonly Rule[] = [netSg001, iamPol001, albHc001];
+export const RULES: readonly Rule[] = [netSg001, iamPol001, albHc001, ecsRes001];
 
 const SEVERITY_ORDER: Readonly<Record<Severity, number>> = {
   CRITICAL: 0,

@@ -1,0 +1,14 @@
+{
+  "description": "Task memory is halved from 1024 to 512 MiB, a valid Fargate combination with 256 CPU units. Whether this causes out of memory failures depends on actual usage, which the template cannot show. This scenario is expected to verify as UNCONFIRMED for the small demonstration application.",
+  "changes": [{ "resourceId": "TaskDefinition", "action": "UPDATE" }],
+  "findings": [
+    {
+      "ruleId": "ECS-RES-001",
+      "severity": "MEDIUM",
+      "changedResource": "TaskDefinition",
+      "causalPath": ["TaskDefinition", "Service"],
+      "affectedResources": ["Service"],
+      "signals": ["AWS/ECS:MemoryUtilization"]
+    }
+  ]
+}
