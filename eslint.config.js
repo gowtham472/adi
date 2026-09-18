@@ -14,7 +14,7 @@ export default tseslint.config(
       globals: { ...globals.node },
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['*.js', '*.mjs', 'engine/scripts/*.mjs'],
+          allowDefaultProject: ['*.js', '*.mjs', 'engine/scripts/*.mjs', 'infrastructure/*/*.mjs'],
         },
         tsconfigRootDir: import.meta.dirname,
       },
@@ -32,7 +32,7 @@ export default tseslint.config(
     ...tseslint.configs.disableTypeChecked,
   },
   {
-    files: ['**/scripts/**'],
+    files: ['**/scripts/**', 'infrastructure/**/*.mjs'],
     rules: { 'no-console': 'off' },
   },
   {

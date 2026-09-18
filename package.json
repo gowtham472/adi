@@ -6,7 +6,7 @@
   "description": "Dependency-aware change impact engine for AWS infrastructure",
   "license": "MIT",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.18.0"
   },
   "workspaces": [
     "engine",
@@ -20,12 +20,17 @@
     "build": "npm run build --workspaces",
     "verify": "npm run typecheck && npm run lint && npm test && npm run build",
     "dev:api": "node engine/scripts/local-api.ts",
-    "dev:web": "npm run dev --workspace @adi/web"
+    "dev:web": "npm run dev --workspace @adi/web",
+    "deploy:demo": "aws cloudformation deploy --template-file infrastructure/demo/baseline.yaml --stack-name adi-demo --capabilities CAPABILITY_IAM --region ap-south-1",
+    "deploy:platform": "npm run build --workspace @adi/engine && cd infrastructure/platform && sam deploy",
+    "deploy:dashboard": "node infrastructure/platform/deploy-dashboard.mjs",
+    "demo:load": "node infrastructure/demo/generate-load.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.20.3",
     "eslint": "^10.10.0",
+    "fflate": "^0.8.3",
     "globals": "^17.12.0",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.70.0",
