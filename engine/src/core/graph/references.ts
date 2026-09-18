@@ -9,6 +9,25 @@ export interface TemplateReference {
 
 const SUB_TOKEN = /\$\{([^}]+)\}/g;
 
+/**
+ * Returns the logical ID a property value points at when the value is exactly a `Ref` or
+ * `Fn::GetAtt`, for example the `SourceSecurityGroupId` of an ingress rule.
+ */
+export function referencedResource(value: unknown): string | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  if (typeof record['Ref'] === 'string') {
+    return record['Ref'];
+  }
+  const getAtt = record['Fn::GetAtt'];
+  if (Array.isArray(getAtt) && typeof getAtt[0] === 'string') {
+    return getAtt[0];
+  }
+  return undefined;
+}
+
 function joinPath(base: string, segment: string): string {
   return base === '' ? segment : `${base}.${segment}`;
 }

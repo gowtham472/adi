@@ -7,11 +7,13 @@ import type {
 
 /** Indexed, read only view over a dependency graph. */
 export class GraphIndex {
+  readonly graph: DependencyGraph;
   private readonly nodesById: ReadonlyMap<string, ResourceNode>;
   private readonly incoming: ReadonlyMap<string, readonly DependencyEdge[]>;
   private readonly outgoing: ReadonlyMap<string, readonly DependencyEdge[]>;
 
-  constructor(readonly graph: DependencyGraph) {
+  constructor(graph: DependencyGraph) {
+    this.graph = graph;
     this.nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
     const incoming = new Map<string, DependencyEdge[]>();
     const outgoing = new Map<string, DependencyEdge[]>();

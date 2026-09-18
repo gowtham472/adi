@@ -10,6 +10,8 @@ export interface Evidence {
   readonly fact: string;
   readonly resourceId?: string;
   readonly propertyPath?: string;
+  /** Documentation URL. Required when `source` is `AWS_DOCUMENTATION`. */
+  readonly reference?: string;
 }
 
 export type ExpectedDirection = 'INCREASE' | 'DECREASE';

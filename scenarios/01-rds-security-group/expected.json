@@ -1,0 +1,14 @@
+{
+  "description": "The database ingress rule is edited from tcp/5432 to tcp/5433. The template is valid and CloudFormation applies it as an in place update, but the application tasks can no longer open connections to PostgreSQL on 5432.",
+  "changes": [{ "resourceId": "DatabaseSecurityGroup", "action": "UPDATE" }],
+  "findings": [
+    {
+      "ruleId": "NET-SG-001",
+      "severity": "HIGH",
+      "changedResource": "DatabaseSecurityGroup",
+      "causalPath": ["DatabaseSecurityGroup", "Database", "TaskDefinition", "Service"],
+      "affectedResources": ["Database", "TaskDefinition", "Service"],
+      "signals": ["AWS/RDS:DatabaseConnections", "AWS/ApplicationELB:HTTPCode_Target_5XX_Count"]
+    }
+  ]
+}

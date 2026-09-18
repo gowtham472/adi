@@ -15,3 +15,27 @@ export function loadTemplate(relativePath: string): CfnTemplate {
 }
 
 export const BASELINE_TEMPLATE_PATH = 'infrastructure/demo/baseline.yaml';
+
+type MutableTemplate = {
+  Resources: Record<string, { Type: string; Properties?: Record<string, unknown>; [key: string]: unknown }>;
+};
+
+/**
+ * Returns a deep copy of the demo baseline with `edit` applied, so each rule test can state
+ * its one change inline instead of maintaining another template file.
+ */
+export function editBaseline(edit: (template: MutableTemplate) => void): CfnTemplate {
+  const copy = structuredClone(loadTemplate(BASELINE_TEMPLATE_PATH)) as unknown as MutableTemplate;
+  edit(copy);
+  return copy;
+}
+
+/** Properties of a resource in a mutable template, failing loudly if it does not exist. */
+export function propertiesOf(template: MutableTemplate, id: string): Record<string, unknown> {
+  const resource = template.Resources[id];
+  if (resource === undefined) {
+    throw new Error(`Resource ${id} is not in the template`);
+  }
+  resource.Properties ??= {};
+  return resource.Properties;
+}
