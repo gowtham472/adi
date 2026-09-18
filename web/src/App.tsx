@@ -8,12 +8,12 @@ import {
   ListIcon,
   PlusIcon,
   SidebarSimpleIcon,
-  TreeStructureIcon,
   XIcon,
   type Icon,
 } from '@phosphor-icons/react';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { AnalysisRecord } from '@adi/engine/types';
+import { LogoMark } from './components/LogoMark.tsx';
 import { EXAMPLES } from './lib/examples.ts';
 import { SEVERITY_ICONS } from './lib/icons.tsx';
 import { RULES } from './lib/rules.ts';
@@ -122,9 +122,7 @@ export function App() {
             {drawerOpen ? <XIcon weight="bold" /> : <ListIcon weight="bold" />}
           </button>
           <a className="brand" href="#/">
-            <span className="brand-mark" aria-hidden="true">
-              <TreeStructureIcon weight="bold" />
-            </span>
+            <LogoMark className="brand-mark" />
             <span className="brand-name">adi</span>
             <span className="brand-divider" aria-hidden="true" />
             <span className="brand-product">Deployment Intelligence</span>
