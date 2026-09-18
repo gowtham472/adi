@@ -1,0 +1,14 @@
+{
+  "description": "The inline policy that lets the task execution role read the database secret is removed. Running tasks keep working because they already hold the secret; the next task launch cannot inject DB_PASSWORD and fails to start.",
+  "changes": [{ "resourceId": "TaskExecutionRole", "action": "UPDATE" }],
+  "findings": [
+    {
+      "ruleId": "IAM-POL-001",
+      "severity": "HIGH",
+      "changedResource": "TaskExecutionRole",
+      "causalPath": ["TaskExecutionRole", "TaskDefinition", "Service"],
+      "affectedResources": ["TaskDefinition", "Service"],
+      "signals": ["AWS/ApplicationELB:HealthyHostCount"]
+    }
+  ]
+}
