@@ -17,8 +17,16 @@ Parameters:
     Type: String
     Default: anthropic.claude-opus-5
     Description: >
-      Claude model on the Amazon Bedrock Messages API endpoint. anthropic.claude-opus-4-8 is
-      open to all Bedrock customers if Opus 5 access has not been granted to the account.
+      Claude model on the Amazon Bedrock Messages API endpoint in BedrockRegion. Use
+      anthropic.claude-opus-4-8 where Opus 5 is not offered or not enabled for the account.
+  BedrockRegion:
+    Type: String
+    Default: us-east-1
+    AllowedPattern: '[a-z]{2}(-[a-z]+)+-[0-9]'
+    Description: >
+      Region of the Bedrock Messages API endpoint. The endpoint does not route requests
+      across regions and does not offer Claude Opus 5 in ap-south-1, so explanations are
+      requested from a region that serves the model. Only redacted findings are sent.
   AllowedOrigin:
     Type: String
     Default: '*'
@@ -133,6 +141,7 @@ Resources:
       Environment:
         Variables:
           BEDROCK_MODEL_ID: !Ref BedrockModelId
+          BEDROCK_REGION: !Ref BedrockRegion
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref AnalysesTable

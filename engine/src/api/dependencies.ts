@@ -45,7 +45,7 @@ export function createDependencies(): ServiceDependencies {
       );
     },
     explain: (findings, resourceIds) => {
-      bedrock ??= new AnthropicBedrockMantle();
+      bedrock ??= new AnthropicBedrockMantle({ awsRegion: requiredEnv('BEDROCK_REGION') });
       return explainFindings(bedrock, requiredEnv('BEDROCK_MODEL_ID'), findings, resourceIds);
     },
     now: () => new Date(),

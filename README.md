@@ -229,6 +229,7 @@ Two npm workspaces, `engine` and `web`.
 │   └── scenarios/                End to end runs asserting exact expected findings
 ├── docs/
 │   ├── decisions/                One file per decision worth recording
+│   ├── aws-setup.md              From an empty AWS account to a deployed platform
 │   ├── demo-script.md            The exact sequence recorded for the video
 │   └── deferred.md               Out of scope ideas, captured and not built
 └── .github/workflows/            CI: the verification gate and template validation
@@ -266,7 +267,9 @@ The local API serves the same routes through the same router and service code as
 
 ## 9. Deployment and demonstration
 
-Requires the AWS CLI v2, the AWS SAM CLI, credentials for the target account, and access to the Claude model on Amazon Bedrock. Everything deploys to `ap-south-1` by default.
+Requires the AWS CLI v2, the AWS SAM CLI, credentials for the target account, and access to the Claude model on Amazon Bedrock. Everything deploys to `ap-south-1` by default, except that explanations are requested from Bedrock in `us-east-1`, because the model is not offered on the Bedrock Messages API in `ap-south-1` ([decision 0004](docs/decisions/0004-bedrock-region.md)).
+
+New to AWS? [docs/aws-setup.md](docs/aws-setup.md) covers everything from an empty account: choosing the account plan, cost alerts, credentials, tools and checking Claude access.
 
 1. Deploy the demonstration stack. RDS makes this the slowest step, typically 15 to 20 minutes.
 
@@ -274,7 +277,7 @@ Requires the AWS CLI v2, the AWS SAM CLI, credentials for the target account, an
    npm run deploy:demo
    ```
 
-2. Deploy the ADI platform. If the account does not have access to Claude Opus 5 on Bedrock, add `--parameter-overrides BedrockModelId=anthropic.claude-opus-4-8` to the `sam deploy` command in `package.json`.
+2. Deploy the ADI platform. If the account does not have access to Claude Opus 5 on Bedrock, deploy with `npm run deploy:platform -- --parameter-overrides BedrockModelId=anthropic.claude-opus-4-8`. `BedrockRegion` changes the Bedrock region the same way.
 
    ```bash
    npm run deploy:platform
