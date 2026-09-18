@@ -18,7 +18,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build": "npm run build --workspaces",
-    "verify": "npm run typecheck && npm run lint && npm test && npm run build"
+    "verify": "npm run typecheck && npm run lint && npm test && npm run build",
+    "dev:api": "node engine/scripts/local-api.ts",
+    "dev:web": "npm run dev --workspace @adi/web"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
