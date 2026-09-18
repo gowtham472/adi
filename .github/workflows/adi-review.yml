@@ -1,0 +1,37 @@
+name: ADI review
+
+# Reviews CloudFormation templates changed in a pull request and comments with the
+# findings. Set the repository variables ADI_API_URL and ADI_DASHBOARD_URL to link each
+# analysis to the dashboard, and ADI_FAIL_ON to change which severity fails the check.
+
+on:
+  pull_request:
+    paths:
+      - '**.yaml'
+      - '**.yml'
+      - '**.json'
+      - '**.template'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: Change impact
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node engine/scripts/review-pull-request.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ADI_API_URL: ${{ vars.ADI_API_URL }}
+          ADI_DASHBOARD_URL: ${{ vars.ADI_DASHBOARD_URL }}
+          ADI_FAIL_ON: ${{ vars.ADI_FAIL_ON || 'CRITICAL' }}

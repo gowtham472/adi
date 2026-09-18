@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeTemplates } from '../../engine/src/core/pipeline.ts';
 import type { AnalysisRecord } from '../../engine/src/types/index.ts';
-import { analysisReport } from '../../web/src/lib/report.ts';
+import { analysisReport } from '../../engine/src/report/markdown.ts';
 import { BASELINE_TEMPLATE_PATH, loadTemplate } from '../helpers.ts';
 
 function record(scenario: string, extra: Partial<AnalysisRecord> = {}): AnalysisRecord {

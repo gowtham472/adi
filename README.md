@@ -64,13 +64,14 @@ This section is the contract. Anything not listed under **In scope** is not buil
 | Bedrock explanation | One Bedrock invocation per analysis, over the compressed finding set. Grounded prompt, JSON response, sanitized input. |
 | Verification | For the primary scenario, collect the declared CloudWatch signals before and after deployment and report `MATCHED`, `UNCONFIRMED` or `CONTRADICTED`. |
 | Web dashboard | Three views: graph, findings, verification. Deployed on Amplify Hosting with a public URL. |
+| Pull request review | A GitHub Actions workflow analyzes every CloudFormation template a pull request adds or modifies, comments with the findings, and fails the check at a configurable severity. Added after the core build plan was complete. |
 | Demo environment | One live ALB to ECS to RDS stack in a single region, deployed once and kept stable. |
 
 ### 3.2 Explicitly out of scope
 
 Recorded here so they are not reintroduced mid build.
 
-- CLI. The dashboard is the only frontend.
+- CLI. The dashboard is the only interactive frontend. The pull request review runs as a CI step and is not a general purpose CLI.
 - Authentication. No Cognito, no user accounts.
 - Step Functions and EventBridge orchestration. Analysis runs in a single Lambda.
 - CloudTrail integration.
@@ -211,8 +212,10 @@ Two npm workspaces, `engine` and `web`.
 │   │   │   ├── cloudwatch/       Signal collection for verification
 │   │   │   ├── bedrock/          Grounded prompt, input redaction, response validation
 │   │   │   └── dynamodb/         Persistence for analyses
-│   │   └── api/                  Router, service operations and the two Lambda handlers
-│   └── scripts/                  Handler bundling and the local API server
+│   │   ├── api/                  Router, service operations and the two Lambda handlers
+│   │   ├── report/               Markdown reports for the dashboard and pull requests
+│   │   └── review/               Finds and analyzes the templates a pull request changes
+│   └── scripts/                  Handler bundling, the local API server, the pull request review
 ├── web/                          React dashboard
 │   └── src/
 │       ├── views/                New analysis, analysis, history, rules
@@ -232,7 +235,7 @@ Two npm workspaces, `engine` and `web`.
 │   ├── aws-setup.md              From an empty AWS account to a deployed platform
 │   ├── demo-script.md            The exact sequence recorded for the video
 │   └── deferred.md               Out of scope ideas, captured and not built
-└── .github/workflows/            CI: the verification gate and template validation
+└── .github/workflows/            CI, template validation, and the pull request review
 ```
 
 Two boundaries matter and are enforced in review:
@@ -302,6 +305,23 @@ New to AWS? [docs/aws-setup.md](docs/aws-setup.md) covers everything from an emp
    ```
 
 6. Wait five minutes for connections to recycle and metrics to arrive, then choose Verify deployment in the analysis. Restore the healthy baseline afterwards with `npm run deploy:demo`.
+
+### Reviewing pull requests
+
+`.github/workflows/adi-review.yml` runs on every pull request that changes a YAML, JSON or `.template` file. It finds the CloudFormation templates among them, analyzes each against its version at the base of the pull request, and posts the report as a comment that later pushes update in place. The same report goes to the job summary, which also covers pull requests from forks, whose token cannot comment.
+
+The analysis runs inside the job with the same engine, so the review needs no AWS access. Three optional repository variables change its behavior:
+
+| Variable | Effect |
+|---|---|
+| `ADI_FAIL_ON` | Severity at or above which the check fails: `CRITICAL` (default), `HIGH`, `MEDIUM`, `LOW` or `NONE`. A template that does not parse always fails it. |
+| `ADI_API_URL`, `ADI_DASHBOARD_URL` | Store each analysis in the deployed platform and link the comment to its impact graph. |
+
+To preview the comment for the current branch without GitHub:
+
+```bash
+node engine/scripts/review-pull-request.ts --base main
+```
 
 To remove everything, delete the `adi-platform` and `adi-demo` stacks. The demonstration stack runs an Application Load Balancer, two Fargate tasks and an RDS instance, so delete it when it is not in use.
 

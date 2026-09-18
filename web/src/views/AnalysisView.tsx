@@ -11,6 +11,7 @@ import {
   SparkleIcon,
 } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
+import { analysisReport } from '@adi/engine/report';
 import type { AnalysisRecord, BlastRadius, VerificationRecord } from '@adi/engine/types';
 import { api, ApiError } from '../api/client.ts';
 import { SeverityBadge } from '../components/Badges.tsx';
@@ -24,7 +25,6 @@ import { NodeInspector } from '../components/NodeInspector.tsx';
 import { ReportDialog } from '../components/ReportDialog.tsx';
 import { VerificationPanel } from '../components/VerificationPanel.tsx';
 import { plural, relativeTime } from '../lib/format.ts';
-import { analysisReport } from '../lib/report.ts';
 
 const POLL_INTERVAL_MS = 3000;
 /** The explanation function times out after five minutes; past this the record will not change. */
