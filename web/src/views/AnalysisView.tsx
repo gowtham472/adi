@@ -15,6 +15,7 @@ import type { AnalysisRecord, BlastRadius, VerificationRecord } from '@adi/engin
 import { api, ApiError } from '../api/client.ts';
 import { SeverityBadge } from '../components/Badges.tsx';
 import { ChangeList } from '../components/ChangeList.tsx';
+import { AnalysisSkeleton } from '../components/AnalysisSkeleton.tsx';
 import { CountUp } from '../components/CountUp.tsx';
 import { FindingCard } from '../components/FindingCard.tsx';
 import { ImpactGraph } from '../components/ImpactGraph.tsx';
@@ -317,23 +318,5 @@ function ExplanationBanner({ record }: { record: AnalysisRecord }) {
         from deterministic rules and are unaffected.
       </p>
     </section>
-  );
-}
-
-function AnalysisSkeleton() {
-  return (
-    <div className="page-with-rail analysis-page" aria-busy="true" aria-label="Loading analysis">
-      <div className="page-column">
-        <span className="skeleton skeleton-line short" />
-        <span className="skeleton skeleton-title" />
-        <span className="skeleton skeleton-block" style={{ height: 76 }} />
-        <span className="skeleton skeleton-block" style={{ height: 520 }} />
-      </div>
-      <aside className="rail findings-rail">
-        <span className="skeleton skeleton-line short" />
-        <span className="skeleton skeleton-block" style={{ height: 120 }} />
-        <span className="skeleton skeleton-block" style={{ height: 220 }} />
-      </aside>
-    </div>
   );
 }

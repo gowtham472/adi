@@ -11,17 +11,23 @@ import {
   XIcon,
   type Icon,
 } from '@phosphor-icons/react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import type { AnalysisRecord } from '@adi/engine/types';
+import { AnalysisSkeleton } from './components/AnalysisSkeleton.tsx';
 import { LogoMark } from './components/LogoMark.tsx';
 import { EXAMPLES } from './lib/examples.ts';
 import { SEVERITY_ICONS } from './lib/icons.tsx';
 import { RULES } from './lib/rules.ts';
 import { readPreference, writePreference } from './lib/preferences.ts';
-import { AnalysisView } from './views/AnalysisView.tsx';
 import { HistoryView } from './views/HistoryView.tsx';
 import { NewAnalysisView } from './views/NewAnalysisView.tsx';
 import { RulesView } from './views/RulesView.tsx';
+
+/**
+ * The analysis page carries the graph renderer and layout engine, most of the bundle. It
+ * loads on first visit to an analysis, so the entry page does not wait for it.
+ */
+const AnalysisView = lazy(() => import('./views/AnalysisView.tsx').then((m) => ({ default: m.AnalysisView })));
 
 type Route =
   | { readonly view: 'NEW'; readonly exampleId?: string }
@@ -219,7 +225,9 @@ export function App() {
           {route.view === 'HISTORY' && <HistoryView />}
           {route.view === 'RULES' && <RulesView />}
           {route.view === 'ANALYSIS' && (
-            <AnalysisView key={route.analysisId} analysisId={route.analysisId} initial={lastCreated} />
+            <Suspense fallback={<AnalysisSkeleton />}>
+              <AnalysisView key={route.analysisId} analysisId={route.analysisId} initial={lastCreated} />
+            </Suspense>
           )}
         </main>
       </div>
