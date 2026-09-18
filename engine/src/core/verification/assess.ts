@@ -30,7 +30,11 @@ export interface MetricSamples {
   readonly observed: readonly number[];
 }
 
-export function classifyMovement(signal: MetricSignal, samples: MetricSamples): SignalObservation {
+/**
+ * Classifies how a signal moved between the two windows. Log pattern signals arrive as
+ * matching lines per minute and are judged like a `Sum` metric.
+ */
+export function classifyMovement(signal: VerificationSignal, samples: MetricSamples): SignalObservation {
   const baseline = mean(samples.baseline);
   const observed = mean(samples.observed);
   if (baseline === undefined || observed === undefined) {
@@ -46,19 +50,22 @@ export function classifyMovement(signal: MetricSignal, samples: MetricSamples): 
     };
   }
   const delta = observed - baseline;
-  const floor = Math.max(ABSOLUTE_THRESHOLD[signal.statistic], RELATIVE_THRESHOLD * Math.max(Math.abs(baseline), Math.abs(observed)));
+  const absolute = signal.kind === 'METRIC' ? ABSOLUTE_THRESHOLD[signal.statistic] : ABSOLUTE_THRESHOLD.Sum;
+  const floor = Math.max(absolute, RELATIVE_THRESHOLD * Math.max(Math.abs(baseline), Math.abs(observed)));
   const movement: ObservedMovement = Math.abs(delta) < floor ? 'UNCHANGED' : delta > 0 ? 'INCREASED' : 'DECREASED';
   return { signal, movement, baseline, observed };
 }
 
 function matchesExpectation(observation: SignalObservation): boolean | undefined {
-  if (observation.signal.kind !== 'METRIC' || observation.movement === 'NO_DATA') {
+  if (observation.movement === 'NO_DATA') {
     return undefined;
   }
   if (observation.movement === 'UNCHANGED') {
     return false;
   }
-  const expected = observation.signal.expectedDirection === 'INCREASE' ? 'INCREASED' : 'DECREASED';
+  // A log pattern signal predicts that matching lines appear, which is an increase.
+  const expected =
+    observation.signal.kind === 'LOG_PATTERN' || observation.signal.expectedDirection === 'INCREASE' ? 'INCREASED' : 'DECREASED';
   return observation.movement === expected;
 }
 

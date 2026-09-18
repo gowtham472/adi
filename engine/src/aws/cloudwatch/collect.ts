@@ -4,8 +4,10 @@ import {
   type MetricDataQuery,
 } from '@aws-sdk/client-cloudwatch';
 import { classifyMovement, unsupportedSignal } from '../../core/verification/assess.ts';
-import type { MetricSignal, SignalObservation, TimeWindow, VerificationSignal } from '../../types/index.ts';
+import type { CloudWatchLogsClient } from '@aws-sdk/client-cloudwatch-logs';
+import type { LogSignal, MetricSignal, SignalObservation, TimeWindow, VerificationSignal } from '../../types/index.ts';
 import { dimensionValue } from './dimensions.ts';
+import { countPerMinute, matchingEventTimes } from './logs.ts';
 
 const PERIOD_SECONDS = 60;
 
@@ -54,26 +56,54 @@ function isResolved(value: ResolvedSignal | SignalObservation): value is Resolve
   return 'queryId' in value;
 }
 
-function within(timestamp: Date, window: TimeWindow): boolean {
+/**
+ * Whether a datapoint's whole minute lies inside a window. A datapoint is stamped with the
+ * start of its minute, so the minute a deployment starts in would otherwise count toward
+ * the baseline while holding failures from after the change, and a partial last minute
+ * would understate a sum.
+ */
+export function within(timestamp: Date, window: TimeWindow): boolean {
   const time = timestamp.getTime();
-  return time >= Date.parse(window.start) && time < Date.parse(window.end);
+  return time >= Date.parse(window.start) && time + PERIOD_SECONDS * 1000 <= Date.parse(window.end);
+}
+
+/** Counts a log pattern's matches per minute in the log group the stack created. */
+async function observeLogSignal(
+  client: CloudWatchLogsClient,
+  signal: LogSignal,
+  physicalIds: ReadonlyMap<string, string>,
+  windows: { baseline: TimeWindow; observed: TimeWindow },
+): Promise<SignalObservation> {
+  const logGroupName = physicalIds.get(signal.resourceId);
+  if (logGroupName === undefined) {
+    return unsupportedSignal(signal, `${signal.resourceId} is not a resource in the deployed stack`);
+  }
+  const times = await matchingEventTimes(client, logGroupName, signal.pattern, windows);
+  return classifyMovement(signal, countPerMinute(times, windows));
 }
 
 /**
  * Collects every metric signal of a finding over both windows in a single GetMetricData
- * request and classifies how each one moved. Log pattern signals are reported as not
- * collected rather than being silently dropped.
+ * request, counts each log pattern's matches in its log group, and classifies how each
+ * signal moved.
  */
 export async function observeSignals(
-  client: CloudWatchClient,
+  clients: { metrics: CloudWatchClient; logs: CloudWatchLogsClient },
   signals: readonly VerificationSignal[],
   physicalIds: ReadonlyMap<string, string>,
   windows: { baseline: TimeWindow; observed: TimeWindow },
 ): Promise<SignalObservation[]> {
+  const client = clients.metrics;
+  const logObservations = new Map<VerificationSignal, SignalObservation>();
+  for (const signal of signals) {
+    if (signal.kind === 'LOG_PATTERN') {
+      logObservations.set(signal, await observeLogSignal(clients.logs, signal, physicalIds, windows));
+    }
+  }
   const resolved = signals.map((signal, index) =>
     signal.kind === 'METRIC'
       ? resolve(signal, index, physicalIds)
-      : unsupportedSignal(signal, 'Log pattern signals are not collected in this version'),
+      : (logObservations.get(signal) ?? unsupportedSignal(signal, 'The log pattern could not be collected')),
   );
   const queries = resolved.filter(isResolved);
 

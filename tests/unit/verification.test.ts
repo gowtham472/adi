@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { assessFinding, classifyMovement, overallStatus } from '../../engine/src/core/verification/assess.ts';
 import { findDeployment, verificationWindows, type StackEvent } from '../../engine/src/core/verification/deployment.ts';
-import { databaseConnections, targetErrors } from '../../engine/src/core/rules/signals.ts';
+import { within } from '../../engine/src/aws/cloudwatch/collect.ts';
+import { countPerMinute } from '../../engine/src/aws/cloudwatch/logs.ts';
+import { CONNECTION_ERROR_PATTERN, databaseConnections, logPattern, targetErrors } from '../../engine/src/core/rules/signals.ts';
 
 const connections = databaseConnections('Database');
 const errors = targetErrors('LoadBalancer', 'TargetGroup');
@@ -113,5 +115,43 @@ describe('findDeployment', () => {
       baseline: { start: '2026-09-19T09:55:00.000Z', end: '2026-09-19T10:10:00.000Z' },
       observed: { start: '2026-09-19T10:12:00.000Z', end: '2026-09-19T10:20:00.000Z' },
     });
+  });
+});
+
+describe('log pattern signals', () => {
+  const logs = logPattern('LogGroup', CONNECTION_ERROR_PATTERN, 'Containers log connection errors');
+  const windows = {
+    baseline: { start: '2026-09-19T10:00:00.000Z', end: '2026-09-19T10:03:00.000Z' },
+    observed: { start: '2026-09-19T10:05:00.000Z', end: '2026-09-19T10:07:00.000Z' },
+  };
+  const at = (iso: string) => Date.parse(iso);
+
+  it('counts matches per minute in each window, with empty minutes as zero', () => {
+    const samples = countPerMinute(
+      [at('2026-09-19T10:00:10Z'), at('2026-09-19T10:05:01Z'), at('2026-09-19T10:05:40Z'), at('2026-09-19T10:06:59Z'), at('2026-09-19T10:04:00Z')],
+      windows,
+    );
+    expect(samples).toEqual({ baseline: [1, 0, 0], observed: [2, 1] });
+  });
+
+  it('matches when errors appear after the deployment', () => {
+    const observation = classifyMovement(logs, { baseline: [0, 0, 0], observed: [9, 12] });
+    expect(observation.movement).toBe('INCREASED');
+    expect(assessFinding('f', [observation]).status).toBe('MATCHED');
+  });
+
+  it('leaves the prediction unconfirmed when no errors appear', () => {
+    const observation = classifyMovement(logs, { baseline: [0, 0, 0], observed: [0, 0] });
+    expect(observation.movement).toBe('UNCHANGED');
+    expect(assessFinding('f', [observation]).status).toBe('UNCONFIRMED');
+  });
+});
+
+describe('metric datapoint windows', () => {
+  const baseline = { start: '2026-09-18T14:02:32.000Z', end: '2026-09-18T14:17:32.000Z' };
+
+  it('leaves the minute a deployment starts in out of the baseline', () => {
+    expect(within(new Date('2026-09-18T14:16:00Z'), baseline)).toBe(true);
+    expect(within(new Date('2026-09-18T14:17:00Z'), baseline)).toBe(false);
   });
 });

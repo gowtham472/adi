@@ -102,6 +102,11 @@ Resources:
               Effect: Allow
               Action: cloudwatch:GetMetricData
               Resource: '*'
+            # Log groups the stack creates without an explicit name are named after it.
+            - Sid: ReadStackLogs
+              Effect: Allow
+              Action: logs:FilterLogEvents
+              Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${AnalyzedStackName}-*
       Events:
         CreateAnalysis:
           Type: HttpApi

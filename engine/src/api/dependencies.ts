@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { AnthropicBedrockMantle } from '@anthropic-ai/bedrock-sdk';
 import { CloudFormationClient } from '@aws-sdk/client-cloudformation';
 import { CloudWatchClient } from '@aws-sdk/client-cloudwatch';
+import { CloudWatchLogsClient } from '@aws-sdk/client-cloudwatch-logs';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { InvokeCommand, LambdaClient } from '@aws-sdk/client-lambda';
 import { explainFindings } from '../aws/bedrock/explain.ts';
@@ -25,6 +26,7 @@ function requiredEnv(name: string): string {
 export function createDependencies(): ServiceDependencies {
   const cloudFormation = new CloudFormationClient({});
   const cloudWatch = new CloudWatchClient({});
+  const cloudWatchLogs = new CloudWatchLogsClient({});
   const lambda = new LambdaClient({});
   const repository = new DynamoAnalysisRepository(new DynamoDBClient({}), requiredEnv('TABLE_NAME'));
   let bedrock: AnthropicBedrockMantle | undefined;
@@ -34,7 +36,7 @@ export function createDependencies(): ServiceDependencies {
     fetchDeployedTemplate: (stackName) => fetchDeployedTemplate(cloudFormation, stackName),
     fetchPhysicalIds: (stackName) => fetchPhysicalIds(cloudFormation, stackName),
     fetchStackEvents: (stackName, since) => fetchStackEvents(cloudFormation, stackName, since),
-    observeSignals: (signals, physicalIds, windows) => observeSignals(cloudWatch, signals, physicalIds, windows),
+    observeSignals: (signals, physicalIds, windows) => observeSignals({ metrics: cloudWatch, logs: cloudWatchLogs }, signals, physicalIds, windows),
     requestExplanation: async (analysisId) => {
       await lambda.send(
         new InvokeCommand({

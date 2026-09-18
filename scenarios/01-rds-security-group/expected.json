@@ -8,7 +8,11 @@
       "changedResource": "DatabaseSecurityGroup",
       "causalPath": ["DatabaseSecurityGroup", "Database", "TaskDefinition", "Service"],
       "affectedResources": ["Database", "TaskDefinition", "Service"],
-      "signals": ["AWS/RDS:DatabaseConnections", "AWS/ApplicationELB:HTTPCode_Target_5XX_Count"]
+      "signals": [
+        "AWS/RDS:DatabaseConnections",
+        "AWS/ApplicationELB:HTTPCode_Target_5XX_Count",
+        "LOG:?ETIMEDOUT ?ECONNREFUSED ?ECONNRESET ?timeout ?\"Connection terminated\""
+      ]
     }
   ]
 }

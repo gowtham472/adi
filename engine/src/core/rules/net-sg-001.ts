@@ -11,6 +11,7 @@ import {
 } from './ingress.ts';
 import { findingId, type Rule, type RuleContext } from './rule.ts';
 import {
+  connectionErrorLogs,
   consumerFailureSignals,
   databaseConnections,
   dedupeSignals,
@@ -153,6 +154,7 @@ export const netSg001: Rule = {
         evidence.push(...pathEvidence(context.graph, connection.path));
         affected.push(...connection.path);
         signals.push(...consumerFailureSignals(context.graph, connection.consumer));
+        signals.push(...connectionErrorLogs(context.graph, connection.consumer, connection.target));
       }
     }
 

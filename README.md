@@ -62,7 +62,7 @@ This section is the contract. Anything not listed under **In scope** is not buil
 | Rule engine | Six deterministic rules covering the cases in section 4. Each rule emits a finding with severity, causal path, evidence list and verification signals. |
 | Evidence | Every finding carries the facts it was derived from, each attributed to its source (template, diff or graph). No finding without evidence. |
 | Bedrock explanation | One Bedrock invocation per analysis, over the compressed finding set. Grounded prompt, JSON response, sanitized input. |
-| Verification | For the primary scenario, collect the declared CloudWatch signals before and after deployment and report `MATCHED`, `UNCONFIRMED` or `CONTRADICTED`. |
+| Verification | For the primary scenario, collect the declared CloudWatch signals before and after deployment and report `MATCHED`, `UNCONFIRMED` or `CONTRADICTED`. Signals are metrics, or log patterns counted per minute in a log group the stack creates. |
 | Web dashboard | Three views: graph, findings, verification. Deployed on Amplify Hosting with a public URL. |
 | Pull request review | A GitHub Actions workflow analyzes every CloudFormation template a pull request adds or modifies, comments with the findings, and fails the check at a configurable severity. Added after the core build plan was complete. |
 | Demo environment | One live ALB to ECS to RDS stack in a single region, deployed once and kept stable. |
@@ -96,7 +96,7 @@ Six services, six rules. Depth over breadth.
 
 | Rule ID | Trigger | Severity | Verification signals |
 |---|---|---|---|
-| `NET-SG-001` | Security group ingress permission removed or narrowed | HIGH when a consumer in the source group depends on the protected resource, MEDIUM otherwise | RDS `DatabaseConnections` falls, target `HTTPCode_Target_5XX_Count` rises |
+| `NET-SG-001` | Security group ingress permission removed or narrowed | HIGH when a consumer in the source group depends on the protected resource, MEDIUM otherwise | RDS `DatabaseConnections` falls, target `HTTPCode_Target_5XX_Count` rises, connection errors appear in the consumer's container logs |
 | `IAM-POL-001` | Permission or managed policy removed from a role that a resource assumes | HIGH | `HealthyHostCount` falls for ECS execution roles, `AccessDenied` in logs for task roles, `Errors` for Lambda |
 | `ALB-HC-001` | Target group health check setting changed | HIGH when the targets' security group blocks the new health check port, MEDIUM otherwise | `UnHealthyHostCount` rises, `HealthyHostCount` falls |
 | `ECS-RES-001` | Task or container CPU or memory reduced | MEDIUM | ECS `MemoryUtilization` or `CPUUtilization` rises |

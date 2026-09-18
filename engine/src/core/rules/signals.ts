@@ -156,6 +156,29 @@ export function consumerFailureSignals(graph: GraphIndex, consumer: string): Ver
   return [];
 }
 
+/**
+ * Client side connection failures as common drivers and runtimes log them: socket errors by
+ * their system codes, and connection timeouts, which PostgreSQL, MySQL and HTTP clients
+ * report with the word "timeout". CloudWatch Logs filter syntax: `?` joins alternatives.
+ */
+export const CONNECTION_ERROR_PATTERN = '?ETIMEDOUT ?ECONNREFUSED ?ECONNRESET ?timeout ?"Connection terminated"';
+
+/**
+ * Connection errors in the logs of an ECS service's containers, when its task definition
+ * sends them to a log group in the template. Used where a change cuts a network path.
+ */
+export function connectionErrorLogs(graph: GraphIndex, consumer: string, target: string): VerificationSignal[] {
+  if (graph.typeOf(consumer) !== TYPES.service) {
+    return [];
+  }
+  return graph.dependenciesOfType(consumer, TYPES.taskDefinition).flatMap((taskDefinition) => {
+    const logGroup = logGroupForTaskDefinition(graph, taskDefinition);
+    return logGroup === undefined
+      ? []
+      : [logPattern(logGroup, CONNECTION_ERROR_PATTERN, `Containers of ${consumer} log connection errors reaching ${target}`)];
+  });
+}
+
 export function dedupeSignals(signals: readonly VerificationSignal[]): VerificationSignal[] {
   const seen = new Map<string, VerificationSignal>();
   for (const signal of signals) {
