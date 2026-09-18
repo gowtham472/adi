@@ -1,0 +1,14 @@
+{
+  "description": "The target group health check path is changed to /healthz, which the application does not serve. Targets fail health checks and are marked unhealthy. Because an Application Load Balancer fails open when every target is unhealthy, client traffic may keep flowing, so target health rather than client errors is the verification signal.",
+  "changes": [{ "resourceId": "TargetGroup", "action": "UPDATE" }],
+  "findings": [
+    {
+      "ruleId": "ALB-HC-001",
+      "severity": "MEDIUM",
+      "changedResource": "TargetGroup",
+      "causalPath": ["TargetGroup", "Service"],
+      "affectedResources": ["Listener", "Service", "LoadBalancer"],
+      "signals": ["AWS/ApplicationELB:UnHealthyHostCount", "AWS/ApplicationELB:HealthyHostCount"]
+    }
+  ]
+}
