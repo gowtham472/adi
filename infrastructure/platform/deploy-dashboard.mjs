@@ -8,7 +8,7 @@
  * Usage: node infrastructure/platform/deploy-dashboard.mjs
  * Environment: PLATFORM_STACK (default adi-platform), AWS_REGION (default ap-south-1)
  */
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,11 +40,11 @@ for (const key of ['ApiUrl', 'DashboardAppId', 'DashboardUrl']) {
 }
 
 console.log(`Building the dashboard against ${outputs.ApiUrl}`);
-execFileSync('npm', ['run', 'build', '--workspace', '@adi/web'], {
+// A fixed command line through the shell, which resolves npm to npm.cmd on Windows.
+execSync('npm run build --workspace @adi/web', {
   cwd: root,
   stdio: 'inherit',
   env: { ...process.env, VITE_API_URL: outputs.ApiUrl },
-  shell: process.platform === 'win32',
 });
 
 const dist = join(root, 'web', 'dist');

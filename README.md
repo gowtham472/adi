@@ -31,7 +31,7 @@ A CloudFormation change set for that edit lists exactly one modified resource. I
 ```mermaid
 flowchart TD
     T1[Current template] --> D[Diff engine]
-    T2[Proposed template] --> D
+    T2[Proposed template<br/>or change set] --> D
     T1 --> G[Graph builder]
     G --> GR[(Dependency graph)]
     D --> I[Impact engine]
@@ -42,7 +42,7 @@ flowchart TD
     F --> B[Amazon Bedrock]
     B --> EX[Explanation and<br/>remediation]
     F --> V[Verification plan]
-    V --> CW[CloudWatch after deploy]
+    V --> CW[CloudWatch metrics<br/>and logs after deploy]
     CW --> C[Predicted vs observed]
 ```
 
@@ -117,11 +117,17 @@ Adding a seventh rule is scope expansion and follows the process in `AGENTS.md`.
 ```mermaid
 flowchart TD
     U[Developer] --> W[Amplify Hosting<br/>React dashboard]
+    U --> PR[Pull request]
+    PR --> GA[GitHub Actions<br/>same engine, no AWS access]
+    GA -.optional link.-> AG
     W --> AG[API Gateway]
     AG --> L[Analysis Lambda]
     L --> DD[(DynamoDB<br/>analyses and findings)]
-    L --> BR[Amazon Bedrock]
-    L --> CWA[CloudWatch<br/>GetMetricData]
+    L --> EXL[Explanation Lambda]
+    EXL --> BR[Amazon Bedrock]
+    L --> CFN[CloudFormation<br/>templates, change sets, events]
+    L --> CWA[CloudWatch<br/>metrics and logs]
+    CFN --> DEMO
     CWA --> DEMO
 
     subgraph DEMO [Analyzed environment]
@@ -136,11 +142,11 @@ flowchart TD
 |---|---|
 | Amplify Hosting | Serves the dashboard and provides the public submission URL |
 | API Gateway | HTTP entry point for the analysis and verification endpoints |
-| Lambda | Runs the analysis pipeline and the verification pass |
+| Lambda | Runs the analysis pipeline and the verification pass, and a second function for explanations |
 | DynamoDB | Stores analyses, findings and verification results |
 | Amazon Bedrock | Generates explanations from structured findings |
-| CloudWatch | Supplies the observed telemetry for verification |
-| CloudFormation | Both the analyzed input and the deployment mechanism for the demo stack |
+| CloudWatch | Supplies the observed telemetry for verification: metrics, and matching lines in the stack's log groups |
+| CloudFormation | The analyzed input, as templates or change sets, and the deployment mechanism for the demo stack |
 | IAM | Read only analyzer role, least privilege |
 
 ### 5.1 Technology
@@ -153,6 +159,7 @@ flowchart TD
 | Demo stack | Plain CloudFormation, no transform | The demo template is the literal input ADI analyzes. It must be ordinary CloudFormation so the before and after pair stays clean. |
 | Tests | Vitest | Shares configuration with Vite, so ESM and TypeScript need no additional setup. One runner for engine and dashboard tests. |
 | Packages | npm workspaces | Single repository, no install step for a contributor to debug. |
+| Pull request review | GitHub Actions running the engine directly with Node's TypeScript support | The same deterministic engine reviews pull requests with no AWS credentials and no build step. |
 
 The stack is fixed for the build window. Changing it mid build is a scope change and follows the process in `AGENTS.md`.
 
@@ -160,7 +167,7 @@ The stack is fixed for the build window. Changing it mid build is a scope change
 
 | Route | Purpose |
 |---|---|
-| `POST /analyses` | Analyze a proposed template against a deployed stack (`stackName`) or a supplied `currentTemplate`. Returns the deterministic analysis immediately. |
+| `POST /analyses` | Analyze a proposed template against a deployed stack (`stackName`) or a supplied `currentTemplate`, or read both from a change set already created on the stack (`stackName` and `changeSetName`). Returns the deterministic analysis immediately. |
 | `GET /analyses` | List recent analyses with their change count, finding count, highest severity and verification status. |
 | `GET /analyses/{analysisId}` | Read one analysis, including the explanation once it is ready. |
 | `POST /analyses/{analysisId}/verification` | Measure the first stack update after the analysis and compare each finding's signals before and after it. |
@@ -184,11 +191,13 @@ sequenceDiagram
     D->>CF: Deploy the change
     CF-->>D: UPDATE_COMPLETE
     A->>CW: Collect declared signals
-    CW-->>A: DatabaseConnections down, 5XX up
+    CW-->>A: DatabaseConnections down, 5XX up,<br/>connection errors in logs
     A-->>D: Prediction MATCHED
 ```
 
-The contrast that carries the demonstration: the CloudFormation change set for this edit reports one modified resource and no warnings. ADI reports the path to the database and names the signals to watch, before the deployment happens.
+The contrast that carries the demonstration: the CloudFormation change set for this edit lists the security group and four resources that reference it, every one as an in place modification with no warning. ADI reports the path to the database and names the signals to watch, before the deployment happens.
+
+This scenario has been run end to end against the live stack, from the change set through to verification: `DatabaseConnections` fell from 2 to 0, target 5XX responses rose from 0 to about 233 a minute, and connection errors in the application's logs rose from 0 to about 254 a minute. Status `MATCHED`.
 
 A second scenario is included where prediction and observation do not agree, and ADI reports `UNCONFIRMED`. A tool that can report a missed prediction is more credible than one that is always right.
 
@@ -348,6 +357,8 @@ The window is 17 to 20 September 2026. Submission closes on 20 September, so usa
 | 20 Sep | Ship | Code frozen by midday. Deployed URL live. Demo video recorded. Blog post published. Submission filed. |
 
 If a day ends without its condition met, the next day's optional work is cut rather than the day's objective deferred.
+
+Status on 18 September: every objective through 19 September is met except Bedrock explanations, which are built and tested but wait on model access for the AWS account. The platform is deployed and scenario 01 has been verified live. With time in hand, four deferred ideas were built: pull request review, change set input, log pattern verification and code splitting of the dashboard.
 
 ## 11. What this project is not
 
