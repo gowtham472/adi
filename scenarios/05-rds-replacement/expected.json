@@ -1,0 +1,17 @@
+{
+  "description": "The initial database name is renamed from appdb to appdata, together with the application setting that reads it. DBName requires replacement, and the template leaves UpdateReplacePolicy at Delete, so CloudFormation creates a new instance and deletes the current one with its data. This scenario is analyzed but never deployed.",
+  "changes": [
+    { "resourceId": "Database", "action": "REPLACE" },
+    { "resourceId": "TaskDefinition", "action": "UPDATE" }
+  ],
+  "findings": [
+    {
+      "ruleId": "RDS-REP-001",
+      "severity": "CRITICAL",
+      "changedResource": "Database",
+      "causalPath": ["Database", "TaskDefinition", "Service"],
+      "affectedResources": ["TaskExecutionRole", "TaskDefinition", "Service"],
+      "signals": ["AWS/RDS:DatabaseConnections", "AWS/ApplicationELB:HTTPCode_Target_5XX_Count"]
+    }
+  ]
+}

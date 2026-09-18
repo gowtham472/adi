@@ -1,0 +1,336 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  ADI demonstration environment. An internet facing Application Load Balancer routes to an
+  ECS Fargate service that queries an RDS PostgreSQL instance on every request. This is the
+  healthy baseline that the scenarios in /scenarios modify.
+
+Resources:
+  # Network
+
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: adi-demo
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.0.10.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      RouteTableId: !Ref PublicRouteTable
+
+  # Security groups
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public HTTP access to the load balancer
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP from the internet
+
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Application tasks, reachable only from the load balancer
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !GetAtt LoadBalancerSecurityGroup.GroupId
+          Description: Application port from the load balancer
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Database, reachable only from application tasks
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !GetAtt AppSecurityGroup.GroupId
+          Description: PostgreSQL from application tasks
+
+  # Database
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Private subnets for the demo database
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+
+  # Delete policies are explicit so the demonstration stack tears down completely. A
+  # production database would use Snapshot for both.
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Engine: postgres
+      DBInstanceClass: db.t4g.micro
+      AllocatedStorage: '20'
+      StorageType: gp3
+      DBName: appdata
+      MasterUsername: adiadmin
+      ManageMasterUserPassword: true
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      VPCSecurityGroups:
+        - !GetAtt DatabaseSecurityGroup.GroupId
+      PubliclyAccessible: false
+      MultiAZ: false
+      BackupRetentionPeriod: 0
+      DeletionProtection: false
+
+  # Load balancer
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Scheme: internet-facing
+      Subnets:
+        - !Ref PublicSubnetA
+        - !Ref PublicSubnetB
+      SecurityGroups:
+        - !GetAtt LoadBalancerSecurityGroup.GroupId
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref Vpc
+      TargetType: ip
+      Protocol: HTTP
+      Port: 8080
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 10
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '10'
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  # Compute
+
+  Cluster:
+    Type: AWS::ECS::Cluster
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    Properties:
+      RetentionInDays: 3
+
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: read-database-secret
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !GetAtt Database.MasterUserSecret.SecretArn
+
+  # The application is deliberately small and runs from a public Node image so the stack
+  # needs no container build. `/health` reports process liveness only, so the load
+  # balancer keeps routing when the database is unreachable and the failure surfaces as
+  # application 5XX responses rather than as unhealthy targets.
+  #
+  # The pool recycles every connection after 30 seconds. Security groups do not interrupt
+  # established connections when a rule changes, so without recycling a network change
+  # would not become visible until existing connections happened to close.
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: '256'
+      Memory: '1024'
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: api
+          Image: public.ecr.aws/docker/library/node:22-alpine
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8080
+              Protocol: tcp
+          EntryPoint:
+            - sh
+            - -c
+          Command:
+            - mkdir -p /app && cd /app && npm install --no-audit --no-fund --silent pg@8 && exec node -e "$APP_SOURCE"
+          Environment:
+            - Name: DB_HOST
+              Value: !GetAtt Database.Endpoint.Address
+            - Name: DB_PORT
+              Value: !GetAtt Database.Endpoint.Port
+            - Name: DB_NAME
+              Value: appdata
+            - Name: DB_USER
+              Value: adiadmin
+            - Name: APP_SOURCE
+              Value: |
+                const http = require('node:http');
+                const { Pool } = require('pg');
+                // RDS for PostgreSQL requires TLS. Certificate verification is disabled
+                // because the demonstration image does not ship the RDS CA bundle.
+                const pool = new Pool({
+                  host: process.env.DB_HOST,
+                  port: Number(process.env.DB_PORT),
+                  database: process.env.DB_NAME,
+                  user: process.env.DB_USER,
+                  password: process.env.DB_PASSWORD,
+                  max: 4,
+                  connectionTimeoutMillis: 2000,
+                  idleTimeoutMillis: 10000,
+                  maxLifetimeSeconds: 30,
+                  ssl: { rejectUnauthorized: false },
+                });
+                pool.on('error', (error) => console.error('pool error:', error.message));
+                http.createServer(async (request, response) => {
+                  if (request.url === '/health') {
+                    response.writeHead(200).end('ok');
+                    return;
+                  }
+                  try {
+                    const result = await pool.query('SELECT now() AS now');
+                    response.writeHead(200, { 'content-type': 'application/json' });
+                    response.end(JSON.stringify({ database: 'reachable', now: result.rows[0].now }));
+                  } catch (error) {
+                    console.error('database query failed:', error.message);
+                    response.writeHead(500, { 'content-type': 'application/json' });
+                    response.end(JSON.stringify({ database: 'unreachable' }));
+                  }
+                }).listen(8080, () => console.log('listening on 8080'));
+          Secrets:
+            - Name: DB_PASSWORD
+              ValueFrom: !Sub '${Database.MasterUserSecret.SecretArn}:password::'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: api
+
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn: Listener
+    Properties:
+      Cluster: !Ref Cluster
+      LaunchType: FARGATE
+      DesiredCount: 2
+      TaskDefinition: !Ref TaskDefinition
+      HealthCheckGracePeriodSeconds: 60
+      DeploymentConfiguration:
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !Ref PublicSubnetA
+            - !Ref PublicSubnetB
+          SecurityGroups:
+            - !GetAtt AppSecurityGroup.GroupId
+      LoadBalancers:
+        - ContainerName: api
+          ContainerPort: 8080
+          TargetGroupArn: !Ref TargetGroup
+
+Outputs:
+  ApplicationUrl:
+    Description: Public URL of the demonstration application
+    Value: !Sub http://${LoadBalancer.DNSName}
