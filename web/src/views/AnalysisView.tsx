@@ -1,6 +1,17 @@
+import {
+  CaretRightIcon,
+  CircleNotchIcon,
+  CloudCheckIcon,
+  FileCodeIcon,
+  GitDiffIcon,
+  InfoIcon,
+  PulseIcon,
+  SparkleIcon,
+} from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
 import type { AnalysisRecord, BlastRadius, VerificationRecord } from '@adi/engine/types';
 import { api, ApiError } from '../api/client.ts';
+import { SeverityBadge } from '../components/Badges.tsx';
 import { ChangeList } from '../components/ChangeList.tsx';
 import { FindingCard } from '../components/FindingCard.tsx';
 import { ImpactGraph } from '../components/ImpactGraph.tsx';
@@ -17,7 +28,7 @@ const RADIUS_LABEL: Readonly<Record<BlastRadius, string>> = {
   LOCAL: 'Local',
 };
 
-type Tab = 'FINDINGS' | 'CHANGES' | 'VERIFICATION';
+type Tab = 'CHANGES' | 'VERIFICATION';
 
 function explanationTimedOut(record: AnalysisRecord): boolean {
   return record.explanationStatus === 'PENDING' && Date.now() - Date.parse(record.createdAt) > EXPLANATION_DEADLINE_MS;
@@ -27,7 +38,7 @@ export function AnalysisView({ analysisId, initial }: { analysisId: string; init
   const [record, setRecord] = useState<AnalysisRecord | undefined>(initial?.analysisId === analysisId ? initial : undefined);
   const [error, setError] = useState<string | undefined>();
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const [tab, setTab] = useState<Tab>('FINDINGS');
+  const [tab, setTab] = useState<Tab>('CHANGES');
 
   useEffect(() => {
     let cancelled = false;
@@ -59,11 +70,17 @@ export function AnalysisView({ analysisId, initial }: { analysisId: string; init
     return <p className="error-banner">{error}</p>;
   }
   if (record === undefined) {
-    return <p className="loading">Loading analysis</p>;
+    return (
+      <p className="loading">
+        <CircleNotchIcon weight="bold" className="spin" aria-hidden="true" />
+        Loading analysis
+      </p>
+    );
   }
 
   const selected = record.findings.find((f) => f.id === selectedId) ?? record.findings[0];
   const radius = RADIUS_ORDER.find((r) => record.impacts.some((i) => i.blastRadius === r));
+  const affectedCount = new Set(record.impacts.flatMap((i) => i.affected.map((a) => a.resourceId))).size;
   const explanationFor = (findingId: string) =>
     record.explanation?.findings.find((f) => f.findingId === findingId)?.explanation;
 
@@ -72,16 +89,48 @@ export function AnalysisView({ analysisId, initial }: { analysisId: string; init
   };
 
   return (
-    <div className="analysis">
-      <header className="analysis-header">
-        <div>
-          <p className="eyebrow">{record.stackName === undefined ? 'Template comparison' : `Stack ${record.stackName}`}</p>
+    <div className="page-with-rail analysis-page">
+      <div className="page-column">
+        <nav className="breadcrumb" aria-label="Breadcrumb">
+          <a href="#/analyses">Analyses</a>
+          <CaretRightIcon weight="bold" aria-hidden="true" />
+          <span>{relativeTime(record.createdAt)}</span>
+        </nav>
+
+        <header className="analysis-header">
+          <span className="context-chip">
+            {record.stackName === undefined ? (
+              <>
+                <FileCodeIcon weight="bold" aria-hidden="true" />
+                Template comparison
+              </>
+            ) : (
+              <>
+                <CloudCheckIcon weight="bold" aria-hidden="true" />
+                Stack <code>{record.stackName}</code>
+              </>
+            )}
+          </span>
           <h1>{selected?.title ?? 'No findings for this change'}</h1>
-        </div>
-        <dl className="stats">
+          {selected !== undefined && (
+            <p className="analysis-subtitle">
+              <SeverityBadge severity={selected.severity} />
+              <code>{selected.ruleId}</code>
+              <span>
+                {selected.changedResource} reaches {plural(selected.affectedResources.length, 'resource')}
+              </span>
+            </p>
+          )}
+        </header>
+
+        <dl className="stat-strip">
           <div>
             <dt>Changes</dt>
             <dd>{record.changeSet.changes.length}</dd>
+          </div>
+          <div>
+            <dt>Affected</dt>
+            <dd>{affectedCount}</dd>
           </div>
           <div>
             <dt>Findings</dt>
@@ -91,62 +140,60 @@ export function AnalysisView({ analysisId, initial }: { analysisId: string; init
             <dt>Blast radius</dt>
             <dd>{radius === undefined ? 'None' : RADIUS_LABEL[radius]}</dd>
           </div>
-          <div>
-            <dt>Analyzed</dt>
-            <dd>{relativeTime(record.createdAt)}</dd>
-          </div>
         </dl>
-      </header>
 
-      <div className="analysis-body">
         <ImpactGraph record={record} selected={selected} />
 
-        <aside className="side-panel">
-          <nav className="tabs" aria-label="Analysis sections">
-            <button type="button" className={tab === 'FINDINGS' ? 'active' : ''} onClick={() => { setTab('FINDINGS'); }}>
-              Findings <span className="count">{record.findings.length}</span>
-            </button>
+        <section className="detail-tabs">
+          <nav className="tabs" aria-label="Analysis details">
             <button type="button" className={tab === 'CHANGES' ? 'active' : ''} onClick={() => { setTab('CHANGES'); }}>
-              Changes <span className="count">{record.changeSet.changes.length}</span>
+              <GitDiffIcon weight="bold" aria-hidden="true" />
+              Changes
+              <span className="count">{record.changeSet.changes.length}</span>
             </button>
             <button type="button" className={tab === 'VERIFICATION' ? 'active' : ''} onClick={() => { setTab('VERIFICATION'); }}>
+              <PulseIcon weight="bold" aria-hidden="true" />
               Verification
             </button>
           </nav>
-
-          {tab === 'FINDINGS' && (
-            <div className="tab-content">
-              <ExplanationBanner record={record} />
-              {record.findings.length === 0 ? (
-                <p className="empty">
-                  {plural(record.changeSet.changes.length, 'change')} analyzed. None matched a rule, so ADI has nothing to
-                  report. The Changes tab lists what differs.
-                </p>
-              ) : (
-                record.findings.map((finding) => (
-                  <FindingCard
-                    key={finding.id}
-                    finding={finding}
-                    explanation={explanationFor(finding.id)}
-                    selected={finding.id === selected?.id}
-                    onSelect={() => { setSelectedId(finding.id); }}
-                  />
-                ))
-              )}
-            </div>
-          )}
-          {tab === 'CHANGES' && (
-            <div className="tab-content">
+          <div className="tab-body">
+            {tab === 'CHANGES' ? (
               <ChangeList changeSet={record.changeSet} impacts={record.impacts} />
-            </div>
-          )}
-          {tab === 'VERIFICATION' && (
-            <div className="tab-content">
+            ) : (
               <VerificationPanel record={record} onVerified={onVerified} />
-            </div>
-          )}
-        </aside>
+            )}
+          </div>
+        </section>
       </div>
+
+      <aside className="rail findings-rail" aria-label="Findings">
+        <header className="rail-header">
+          <h2 className="rail-title">Findings</h2>
+          <span className="count">{record.findings.length}</span>
+        </header>
+        <ExplanationBanner record={record} />
+        {record.findings.length === 0 ? (
+          <div className="empty-state">
+            <CloudCheckIcon weight="bold" className="tone-matched" aria-hidden="true" />
+            <h3>No rule matched this change</h3>
+            <p>
+              {plural(record.changeSet.changes.length, 'change')} analyzed and none matched a rule. The Changes tab lists
+              what differs.
+            </p>
+          </div>
+        ) : (
+          record.findings.map((finding) => (
+            <FindingCard
+              key={finding.id}
+              finding={finding}
+              explanation={explanationFor(finding.id)}
+              explanationModel={record.explanation?.model}
+              selected={finding.id === selected?.id}
+              onSelect={() => { setSelectedId(finding.id); }}
+            />
+          ))
+        )}
+      </aside>
     </div>
   );
 }
@@ -157,28 +204,31 @@ function ExplanationBanner({ record }: { record: AnalysisRecord }) {
   }
   if (record.explanationStatus === 'READY' && record.explanation !== undefined) {
     return (
-      <section className="explanation-banner ready">
+      <section className="explanation-banner">
+        <header>
+          <SparkleIcon weight="fill" aria-hidden="true" />
+          Summary
+          <code>{record.explanation.model}</code>
+        </header>
         <p>{record.explanation.summary}</p>
-        <p className="attribution">
-          Explained by <code>{record.explanation.model}</code> on Amazon Bedrock from the evidence below. Findings and
-          severities come from deterministic rules.
-        </p>
+        <p className="attribution">Written on Amazon Bedrock from the evidence below. Rules set every severity.</p>
       </section>
     );
   }
   if (record.explanationStatus === 'PENDING' && !explanationTimedOut(record)) {
     return (
-      <section className="explanation-banner pending">
-        <span className="spinner" aria-hidden="true" />
-        <p>Generating an explanation with Amazon Bedrock. The findings below are already complete.</p>
+      <section className="explanation-banner muted-banner">
+        <SparkleIcon weight="fill" className="breathe" aria-hidden="true" />
+        <p>Writing an explanation with Amazon Bedrock. The findings are already complete.</p>
       </section>
     );
   }
   return (
-    <section className="explanation-banner failed">
+    <section className="explanation-banner muted-banner">
+      <InfoIcon weight="bold" aria-hidden="true" />
       <p>
-        Explanation unavailable: {record.explanationError ?? 'the explanation did not complete in time'}. The findings are
-        produced by deterministic rules and are unaffected.
+        Explanation unavailable: {record.explanationError ?? 'the explanation did not complete in time'}. The findings come
+        from deterministic rules and are unaffected.
       </p>
     </section>
   );

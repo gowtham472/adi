@@ -1,34 +1,75 @@
-import { useState, type SyntheticEvent } from 'react';
-import { api, ApiError, type CreateAnalysisInput } from '../api/client.ts';
-import { BASELINE_TEMPLATE, EXAMPLES } from '../lib/examples.ts';
+import {
+  ArrowRightIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+  CircleNotchIcon,
+  CloudCheckIcon,
+  FileCodeIcon,
+  GitDiffIcon,
+  TerminalIcon,
+} from '@phosphor-icons/react';
+import { useRef, useState, type SyntheticEvent } from 'react';
 import type { AnalysisRecord } from '@adi/engine/types';
+import { api, ApiError, type CreateAnalysisInput } from '../api/client.ts';
+import { SeverityBadge } from '../components/Badges.tsx';
+import { BASELINE_TEMPLATE, EXAMPLES } from '../lib/examples.ts';
+import { ResourceGlyph } from '../lib/icons.tsx';
 
 type CurrentSource = 'TEMPLATE' | 'STACK';
 
+/** Types of the resources the scenarios change in the demonstration stack, for card icons. */
+const CHANGED_TYPES: Readonly<Record<string, string>> = {
+  DatabaseSecurityGroup: 'AWS::EC2::SecurityGroup',
+  TaskExecutionRole: 'AWS::IAM::Role',
+  TargetGroup: 'AWS::ElasticLoadBalancingV2::TargetGroup',
+  TaskDefinition: 'AWS::ECS::TaskDefinition',
+  Database: 'AWS::RDS::DBInstance',
+  Listener: 'AWS::ElasticLoadBalancingV2::Listener',
+};
+
+const STEPS: readonly { readonly title: string; readonly detail: string }[] = [
+  { title: 'Diff', detail: 'Compare the proposed template with the current state, resource by resource.' },
+  { title: 'Graph', detail: 'Build dependencies from Ref, GetAtt, Sub and DependsOn.' },
+  { title: 'Impact', detail: 'Walk every resource the change can reach.' },
+  { title: 'Rules', detail: 'Six deterministic rules turn reach into findings with evidence.' },
+  { title: 'Explain', detail: 'Claude on Amazon Bedrock explains findings it did not produce.' },
+  { title: 'Verify', detail: 'After you deploy, compare CloudWatch signals before and after.' },
+];
+
+function lineCount(text: string): number {
+  return text === '' ? 0 : text.split('\n').length;
+}
+
 interface NewAnalysisViewProps {
+  readonly exampleId: string | undefined;
   readonly onCreated: (record: AnalysisRecord) => void;
 }
 
-export function NewAnalysisView({ onCreated }: NewAnalysisViewProps) {
+export function NewAnalysisView({ exampleId, onCreated }: NewAnalysisViewProps) {
+  const initialExample = EXAMPLES.find((e) => e.id === exampleId);
   const [source, setSource] = useState<CurrentSource>('TEMPLATE');
   const [stackName, setStackName] = useState('adi-demo');
-  const [currentTemplate, setCurrentTemplate] = useState('');
-  const [proposedTemplate, setProposedTemplate] = useState('');
-  const [exampleId, setExampleId] = useState<string | undefined>();
+  const [currentTemplate, setCurrentTemplate] = useState(initialExample === undefined ? '' : BASELINE_TEMPLATE);
+  const [proposedTemplate, setProposedTemplate] = useState(initialExample?.proposedTemplate ?? '');
+  const [selectedId, setSelectedId] = useState<string | undefined>(initialExample?.id);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
-
-  const example = EXAMPLES.find((e) => e.id === exampleId);
+  const railRef = useRef<HTMLDivElement>(null);
+  const editorsRef = useRef<HTMLElement>(null);
 
   const loadExample = (id: string) => {
     const chosen = EXAMPLES.find((e) => e.id === id);
     if (chosen === undefined) {
       return;
     }
-    setExampleId(id);
+    setSelectedId(id);
     setProposedTemplate(chosen.proposedTemplate);
     setCurrentTemplate(BASELINE_TEMPLATE);
     setError(undefined);
+  };
+
+  const scrollExamples = (direction: 1 | -1) => {
+    railRef.current?.scrollBy({ left: direction * 320, behavior: 'smooth' });
   };
 
   const submit = async (event: SyntheticEvent) => {
@@ -47,90 +88,192 @@ export function NewAnalysisView({ onCreated }: NewAnalysisViewProps) {
 
   const ready =
     proposedTemplate.trim() !== '' && (source === 'STACK' ? stackName.trim() !== '' : currentTemplate.trim() !== '');
+  const selected = EXAMPLES.find((e) => e.id === selectedId);
 
   return (
-    <form className="new-analysis" onSubmit={(event) => void submit(event)}>
-      <section className="intro">
-        <h1>What will this change affect?</h1>
-        <p>
-          Compare a proposed CloudFormation template with the current state of a stack. ADI builds the dependency graph,
-          traces every resource the change can reach, and reports findings backed by evidence from the template, the
-          graph and the AWS documentation.
-        </p>
-      </section>
-
-      <section className="examples" aria-label="Example changes">
-        <h2>Start from an example change to the demonstration stack</h2>
-        <div className="example-list">
-          {EXAMPLES.map((e) => (
+    <div className="page-with-rail">
+      <form className="page-column" onSubmit={(event) => void submit(event)}>
+        <section className="hero">
+          <h1 className="display">
+            <span className="keyword">if</span> change: trace_impact()
+          </h1>
+          <p className="lead">
+            What will this change affect? ADI builds the dependency graph of your CloudFormation stack, traces every
+            resource a change can reach, and backs each finding with evidence. After you deploy, it checks whether the
+            predicted signals actually moved.
+          </p>
+          <div className="hero-actions">
             <button
-              key={e.id}
               type="button"
-              className={`example ${e.id === exampleId ? 'active' : ''}`}
-              onClick={() => { loadExample(e.id); }}
+              className="button button-solid"
+              onClick={() => { editorsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
             >
-              {e.label}
+              Paste templates
             </button>
-          ))}
-        </div>
-        {example !== undefined && <p className="example-description">{example.description}</p>}
-      </section>
+            <a className="button button-outline" href="#/rules">
+              Read the rules
+            </a>
+          </div>
+        </section>
 
-      <div className="template-grid">
-        <section className="template-panel">
-          <header>
-            <h2>Current state</h2>
-            <div className="segmented" role="group" aria-label="Current state source">
-              <button type="button" className={source === 'TEMPLATE' ? 'active' : ''} onClick={() => { setSource('TEMPLATE'); }}>
-                Template
+        <section className="section" aria-labelledby="examples-heading">
+          <header className="section-header">
+            <h2 id="examples-heading" className="section-title">
+              Examples
+            </h2>
+            <div className="carousel-controls">
+              <button type="button" className="icon-button" onClick={() => { scrollExamples(-1); }} aria-label="Previous examples">
+                <CaretLeftIcon weight="bold" />
               </button>
-              <button type="button" className={source === 'STACK' ? 'active' : ''} onClick={() => { setSource('STACK'); }}>
-                Deployed stack
+              <button type="button" className="icon-button" onClick={() => { scrollExamples(1); }} aria-label="Next examples">
+                <CaretRightIcon weight="bold" />
               </button>
             </div>
           </header>
-          {source === 'STACK' ? (
-            <div className="stack-input">
-              <label htmlFor="stack-name">Stack name</label>
-              <input id="stack-name" value={stackName} onChange={(e) => { setStackName(e.target.value); }} spellCheck={false} />
-              <p className="hint">
-                ADI reads the template the stack was last deployed with. Analyses against a stack can be verified after you
-                deploy the change.
-              </p>
-            </div>
-          ) : (
-            <textarea
-              aria-label="Current template"
-              value={currentTemplate}
-              onChange={(e) => { setCurrentTemplate(e.target.value); }}
-              placeholder="Paste the current CloudFormation template (YAML or JSON)"
-              spellCheck={false}
-              wrap="off"
-            />
+          <div className="example-rail" ref={railRef}>
+            {EXAMPLES.map((example) => {
+              const type = example.changedResource === undefined ? '' : (CHANGED_TYPES[example.changedResource] ?? '');
+              return (
+                <button
+                  key={example.id}
+                  type="button"
+                  className={`example-card ${example.id === selectedId ? 'active' : ''}`}
+                  onClick={() => { loadExample(example.id); }}
+                  aria-pressed={example.id === selectedId}
+                >
+                  <span className="example-visual">
+                    <span className="example-visual-top">
+                      <code>{example.ruleId}</code>
+                      {example.severity !== undefined && <SeverityBadge severity={example.severity} />}
+                    </span>
+                    <ResourceGlyph type={type} weight="light" className="example-glyph" aria-hidden="true" />
+                    <code className="example-resource">{example.changedResource}</code>
+                  </span>
+                  <span className="example-title">{example.label}</span>
+                  <span className="example-description">{example.description}</span>
+                </button>
+              );
+            })}
+          </div>
+          {selected !== undefined && (
+            <p className="notice">
+              Loaded <strong>{selected.label}</strong>: the demonstration baseline as the current template and the modified
+              template as the proposal.
+            </p>
           )}
         </section>
 
-        <section className="template-panel">
-          <header>
-            <h2>Proposed template</h2>
+        <section className="section" ref={editorsRef} aria-labelledby="templates-heading">
+          <header className="section-header">
+            <h2 id="templates-heading" className="section-title">
+              Templates
+            </h2>
+            <div className="segmented" role="group" aria-label="Current state source">
+              <button type="button" className={source === 'TEMPLATE' ? 'active' : ''} onClick={() => { setSource('TEMPLATE'); }}>
+                <FileCodeIcon weight="bold" aria-hidden="true" />
+                Compare templates
+              </button>
+              <button type="button" className={source === 'STACK' ? 'active' : ''} onClick={() => { setSource('STACK'); }}>
+                <CloudCheckIcon weight="bold" aria-hidden="true" />
+                Compare with a stack
+              </button>
+            </div>
           </header>
-          <textarea
-            aria-label="Proposed template"
-            value={proposedTemplate}
-            onChange={(e) => { setProposedTemplate(e.target.value); }}
-            placeholder="Paste the template you intend to deploy"
-            spellCheck={false}
-            wrap="off"
-          />
-        </section>
-      </div>
 
-      {error !== undefined && <p className="error-banner">{error}</p>}
-      <div className="form-actions">
-        <button type="submit" className="primary" disabled={!ready || submitting}>
-          {submitting ? 'Analyzing' : 'Analyze change'}
-        </button>
-      </div>
-    </form>
+          <div className="editor-grid">
+            <div className="editor">
+              <div className="editor-header">
+                {source === 'STACK' ? <CloudCheckIcon weight="bold" aria-hidden="true" /> : <FileCodeIcon weight="bold" aria-hidden="true" />}
+                <span>{source === 'STACK' ? 'Deployed stack' : 'current.yaml'}</span>
+              </div>
+              {source === 'STACK' ? (
+                <div className="stack-input">
+                  <label htmlFor="stack-name">CloudFormation stack name</label>
+                  <input id="stack-name" value={stackName} onChange={(e) => { setStackName(e.target.value); }} spellCheck={false} />
+                  <p className="hint">
+                    ADI reads the template the stack was last deployed with. An analysis against a stack can be verified
+                    with CloudWatch after you deploy the change.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <textarea
+                    aria-label="Current template"
+                    value={currentTemplate}
+                    onChange={(e) => { setCurrentTemplate(e.target.value); }}
+                    placeholder="Paste the current CloudFormation template, YAML or JSON"
+                    spellCheck={false}
+                    wrap="off"
+                  />
+                  <div className="editor-footer">{lineCount(currentTemplate)} lines</div>
+                </>
+              )}
+            </div>
+
+            <div className="editor">
+              <div className="editor-header">
+                <GitDiffIcon weight="bold" aria-hidden="true" />
+                <span>proposed.yaml</span>
+              </div>
+              <textarea
+                aria-label="Proposed template"
+                value={proposedTemplate}
+                onChange={(e) => { setProposedTemplate(e.target.value); }}
+                placeholder="Paste the template you intend to deploy"
+                spellCheck={false}
+                wrap="off"
+              />
+              <div className="editor-footer">{lineCount(proposedTemplate)} lines</div>
+            </div>
+          </div>
+
+          {error !== undefined && <p className="error-banner">{error}</p>}
+
+          <div className="submit-row">
+            <button type="submit" className="button button-solid button-large" disabled={!ready || submitting}>
+              {submitting ? (
+                <CircleNotchIcon weight="bold" className="spin" aria-hidden="true" />
+              ) : (
+                <ArrowRightIcon weight="bold" aria-hidden="true" />
+              )}
+              {submitting ? 'Analyzing' : 'Analyze change'}
+            </button>
+            <span className="muted">
+              {source === 'STACK' ? `Compares against the deployed stack ${stackName}` : 'Compares the two templates above'}
+            </span>
+          </div>
+        </section>
+      </form>
+
+      <aside className="rail">
+        <div className="rail-block">
+          <span className="terminal-mark" aria-hidden="true">
+            <TerminalIcon weight="bold" />
+          </span>
+          <h2 className="rail-title">How ADI reads a change</h2>
+          <ol className="steps">
+            {STEPS.map((step, index) => (
+              <li key={step.title}>
+                <span className="step-number">{String(index + 1).padStart(2, '0')}</span>
+                <span>
+                  <strong>{step.title}</strong>
+                  <span className="muted">{step.detail}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className="rail-block">
+          <h2 className="rail-title">Evidence first</h2>
+          <p className="rail-text">
+            Every finding cites the facts it rests on. When the evidence does not support a prediction after deployment,
+            verification reports it as unconfirmed rather than matched.
+          </p>
+          <a className="button button-outline" href="#/rules">
+            Browse the rules
+          </a>
+        </div>
+      </aside>
+    </div>
   );
 }

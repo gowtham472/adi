@@ -1,7 +1,9 @@
+import { CheckCircleIcon, CircleNotchIcon, ClockIcon, FlagIcon, PlayIcon, PulseIcon, RocketIcon, TrendDownIcon, TrendUpIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 import type { AnalysisRecord, SignalObservation, VerificationRecord } from '@adi/engine/types';
 import { api, ApiError } from '../api/client.ts';
 import { absoluteTime, formatNumber } from '../lib/format.ts';
+import { STATUS_ICONS } from '../lib/icons.tsx';
 import { StatusBadge } from './Badges.tsx';
 
 const MOVEMENT_LABEL = {
@@ -15,10 +17,32 @@ function signalName(observation: SignalObservation): string {
   return observation.signal.kind === 'METRIC' ? observation.signal.metricName : `Log: ${observation.signal.pattern}`;
 }
 
-function expected(observation: SignalObservation): string {
-  return observation.signal.kind === 'METRIC'
-    ? observation.signal.expectedDirection === 'INCREASE' ? 'Rise' : 'Fall'
-    : 'Appear';
+/** Before and after drawn on the same scale, so the change reads at a glance. */
+function ComparisonBars({ observation }: { observation: SignalObservation }) {
+  const { baseline, observed } = observation;
+  if (baseline === undefined && observed === undefined) {
+    return null;
+  }
+  const max = Math.max(baseline ?? 0, observed ?? 0, 1e-9);
+  const width = (value: number | undefined) => `${String(Math.max(2, ((value ?? 0) / max) * 100))}%`;
+  return (
+    <div className="comparison">
+      <div className="comparison-row">
+        <span>Before</span>
+        <span className="bar-track">
+          <span className="bar before" style={{ width: width(baseline) }} />
+        </span>
+        <code>{formatNumber(baseline)}</code>
+      </div>
+      <div className="comparison-row">
+        <span>After</span>
+        <span className="bar-track">
+          <span className={`bar after movement-${observation.movement.toLowerCase()}`} style={{ width: width(observed) }} />
+        </span>
+        <code>{formatNumber(observed)}</code>
+      </div>
+    </div>
+  );
 }
 
 interface VerificationPanelProps {
@@ -33,10 +57,16 @@ export function VerificationPanel({ record, onVerified }: VerificationPanelProps
 
   if (record.stackName === undefined) {
     return (
-      <p className="empty">
-        Verification compares CloudWatch signals before and after a stack update, so it needs an analysis made against a
-        deployed stack. This analysis compared two templates.
-      </p>
+      <div className="empty-state">
+        <span className="icon-tile large">
+          <PulseIcon weight="bold" aria-hidden="true" />
+        </span>
+        <h3>Verification needs a deployed stack</h3>
+        <p>
+          ADI compares CloudWatch signals before and after a stack update. This analysis compared two templates, so there is
+          no deployment to measure. Analyze against a deployed stack to verify.
+        </p>
+      </div>
     );
   }
   if (record.findings.length === 0) {
@@ -57,77 +87,82 @@ export function VerificationPanel({ record, onVerified }: VerificationPanelProps
 
   return (
     <div className="verification">
-      <div className="verification-intro">
-        <p>
-          Deploy the proposed template to <code>{record.stackName}</code>, then verify. ADI finds the first stack update after
-          this analysis in CloudFormation's events and compares each predicted signal in the fifteen minutes before it with
-          the period after it.
-        </p>
+      <section className="verify-card">
+        <span className="icon-tile large">
+          <PulseIcon weight="bold" aria-hidden="true" />
+        </span>
+        <div>
+          <h3>Did the prediction hold?</h3>
+          <p>
+            Deploy the proposed template to <code>{record.stackName}</code>, then verify. ADI finds the first stack update
+            after this analysis in CloudFormation's events and compares each predicted signal in the fifteen minutes before it
+            with the period after it.
+          </p>
+        </div>
         <button type="button" className="primary" onClick={() => void verify()} disabled={running}>
+          {running ? <CircleNotchIcon weight="bold" className="spin" aria-hidden="true" /> : <PlayIcon weight="fill" aria-hidden="true" />}
           {running ? 'Collecting signals' : verification === undefined ? 'Verify deployment' : 'Verify again'}
         </button>
-      </div>
+      </section>
       {error !== undefined && <p className="error-banner">{error}</p>}
 
       {verification !== undefined && (
         <>
-          <dl className="deployment-facts">
-            <div>
-              <dt>Stack update</dt>
-              <dd>{verification.deployment.status}</dd>
-            </div>
-            <div>
-              <dt>Started</dt>
-              <dd>{absoluteTime(verification.deployment.startedAt)}</dd>
-            </div>
-            <div>
-              <dt>Completed</dt>
-              <dd>{absoluteTime(verification.deployment.completedAt)}</dd>
-            </div>
-            <div>
-              <dt>Observed until</dt>
-              <dd>{absoluteTime(verification.observedWindow.end)}</dd>
-            </div>
-          </dl>
+          <ol className="deployment-timeline">
+            <li>
+              <RocketIcon weight="bold" aria-hidden="true" />
+              <span>Update started</span>
+              <strong>{absoluteTime(verification.deployment.startedAt)}</strong>
+            </li>
+            <li>
+              <CheckCircleIcon weight="bold" aria-hidden="true" />
+              <span>{verification.deployment.status}</span>
+              <strong>{absoluteTime(verification.deployment.completedAt)}</strong>
+            </li>
+            <li>
+              <ClockIcon weight="bold" aria-hidden="true" />
+              <span>Observed until</span>
+              <strong>{absoluteTime(verification.observedWindow.end)}</strong>
+            </li>
+          </ol>
 
           {verification.findings.map((result) => {
             const finding = record.findings.find((f) => f.id === result.findingId);
+            const StatusIcon = STATUS_ICONS[result.status];
             return (
-              <section key={result.findingId} className="verification-result">
+              <section key={result.findingId} className={`verification-result tone-border-${result.status.toLowerCase()}`}>
                 <header>
-                  <StatusBadge status={result.status} />
-                  <h3>{finding?.title ?? result.findingId}</h3>
+                  <span className={`severity-tile tone-${result.status.toLowerCase()}`}>
+                    <StatusIcon weight="fill" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <StatusBadge status={result.status} />
+                    <h3>{finding?.title ?? result.findingId}</h3>
+                  </div>
                 </header>
-                <table className="observation-table">
-                  <thead>
-                    <tr>
-                      <th>Signal</th>
-                      <th>Predicted</th>
-                      <th>Before</th>
-                      <th>After</th>
-                      <th>Observed</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.observations.map((observation, index) => (
-                      <tr key={index}>
-                        <td>
+                <ul className="observation-list">
+                  {result.observations.map((observation, index) => (
+                    <li key={index}>
+                      <div className="observation-head">
+                        <span className="observation-name">
+                          {observation.signal.kind === 'METRIC' && observation.signal.expectedDirection === 'INCREASE' ? (
+                            <TrendUpIcon weight="bold" aria-hidden="true" />
+                          ) : observation.signal.kind === 'METRIC' ? (
+                            <TrendDownIcon weight="bold" aria-hidden="true" />
+                          ) : (
+                            <FlagIcon weight="bold" aria-hidden="true" />
+                          )}
                           <code>{signalName(observation)}</code>
-                          <div className="muted">{observation.signal.description}</div>
-                        </td>
-                        <td>{expected(observation)}</td>
-                        <td>{formatNumber(observation.baseline)}</td>
-                        <td>{formatNumber(observation.observed)}</td>
-                        <td>
-                          <span className={`movement movement-${observation.movement.toLowerCase()}`}>
-                            {MOVEMENT_LABEL[observation.movement]}
-                          </span>
-                          {observation.note !== undefined && <div className="muted">{observation.note}</div>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </span>
+                        <span className={`movement-chip movement-${observation.movement.toLowerCase()}`}>
+                          {MOVEMENT_LABEL[observation.movement]}
+                        </span>
+                      </div>
+                      <p className="muted">{observation.note ?? observation.signal.description}</p>
+                      <ComparisonBars observation={observation} />
+                    </li>
+                  ))}
+                </ul>
               </section>
             );
           })}

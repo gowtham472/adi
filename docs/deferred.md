@@ -11,4 +11,4 @@ is a scope change under `AGENTS.md` section 2 if it is picked up.
 | Store large analyses in S3 | DynamoDB's item limit is ample for the demonstration stack. Oversized analyses are rejected with a clear 413 instead. |
 | Authentication for the API and dashboard | Out of scope. Route throttling bounds what an anonymous caller can trigger. |
 | Client side refusal fallback for the Bedrock call | A refusal is recorded as an unavailable explanation, and the deterministic findings are the fallback by design. The client side middleware also depends on a beta header whose support on the Bedrock endpoint was not confirmed. |
-| Code splitting the dashboard bundle | 172 KB gzipped, mostly React Flow and the bundled example templates. Acceptable for a single page tool. |
+| Code splitting the dashboard bundle | 217 KB of JavaScript gzipped, mostly React Flow, the icon set and the bundled example templates. Acceptable for a single page tool. |

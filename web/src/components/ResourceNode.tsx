@@ -1,5 +1,6 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { DisplayNode } from '../lib/graph.ts';
+import { ResourceGlyph } from '../lib/icons.tsx';
 
 export type ResourceNodeData = Node<{ resource: DisplayNode; vertical: boolean }, 'resource'>;
 
@@ -21,17 +22,23 @@ export function ResourceNode({ data }: NodeProps<ResourceNodeData>) {
 
   return (
     <div className={classes} title={resource.type}>
+      {resource.state === 'CHANGED' && <span className="change-pulse" aria-hidden="true" />}
       <Handle type="target" position={vertical ? Position.Top : Position.Left} isConnectable={false} />
-      <div className="resource-node-top">
-        <span className="service-chip">{SERVICE_LABEL[resource.service] ?? resource.service}</span>
-        {resource.changeAction !== undefined ? (
-          <span className="node-tag tag-changed">{resource.changeAction}</span>
-        ) : resource.depth !== undefined ? (
-          <span className="node-tag tag-affected">{resource.depth === 1 ? 'direct' : `${String(resource.depth)} hops`}</span>
-        ) : null}
-      </div>
-      <div className="resource-id">{resource.id}</div>
-      <div className="resource-type">{shortType(resource.type)}</div>
+      <span className="node-icon">
+        <ResourceGlyph type={resource.type} weight="bold" aria-hidden="true" />
+      </span>
+      <span className="node-body">
+        <span className="node-top">
+          <span className="service-chip">{SERVICE_LABEL[resource.service] ?? resource.service}</span>
+          {resource.changeAction !== undefined ? (
+            <span className="node-tag tag-changed">{resource.changeAction}</span>
+          ) : resource.depth !== undefined ? (
+            <span className="node-tag tag-affected">{resource.depth === 1 ? 'direct' : `${String(resource.depth)} hops`}</span>
+          ) : null}
+        </span>
+        <span className="resource-id">{resource.id}</span>
+        <span className="resource-type">{shortType(resource.type)}</span>
+      </span>
       <Handle type="source" position={vertical ? Position.Bottom : Position.Right} isConnectable={false} />
     </div>
   );

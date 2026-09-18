@@ -146,7 +146,7 @@ flowchart TD
 | Layer | Choice | Reason |
 |---|---|---|
 | Engine and Lambda handlers | TypeScript on Node 22 (Lambda `nodejs22.x`), AWS SDK v3 | CloudFormation templates are deeply nested untyped structures with intrinsic functions. TypeScript models them directly, and the domain types are shared with the frontend rather than duplicated across a language boundary. |
-| Dashboard | React with Vite, React Flow with a dagre layout | Three screens, no routing framework required. React Flow gives a readable causal path view without building a layout engine. |
+| Dashboard | React with Vite, React Flow with a dagre layout, Phosphor icons, Plus Jakarta Sans and JetBrains Mono (self hosted) | A few hash routed screens, no routing framework required. React Flow gives a readable causal path view without building a layout engine. |
 | ADI platform stack | AWS SAM | Purpose built for Lambda and API Gateway, and `sam deploy` iterates fast during the build window. |
 | Demo stack | Plain CloudFormation, no transform | The demo template is the literal input ADI analyzes. It must be ordinary CloudFormation so the before and after pair stays clean. |
 | Tests | Vitest | Shares configuration with Vite, so ESM and TypeScript need no additional setup. One runner for engine and dashboard tests. |
@@ -215,7 +215,7 @@ Two npm workspaces, `engine` and `web`.
 │   └── scripts/                  Handler bundling and the local API server
 ├── web/                          React dashboard
 │   └── src/
-│       ├── views/                New analysis, analysis, history
+│       ├── views/                New analysis, analysis, history, rules
 │       ├── components/           Impact graph, routed edges, findings, changes, verification
 │       ├── api/                  Typed client against the API contract
 │       └── lib/                  Graph layout, bundled examples, formatting

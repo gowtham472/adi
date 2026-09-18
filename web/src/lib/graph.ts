@@ -56,8 +56,8 @@ export function edgeLabel(relationships: readonly Relationship[]): string {
   return (specific.length > 0 ? specific : relationships).map((r) => RELATIONSHIP_VERB[r]).join(', ');
 }
 
-export const NODE_WIDTH = 200;
-export const NODE_HEIGHT = 60;
+export const NODE_WIDTH = 230;
+export const NODE_HEIGHT = 66;
 
 function pathPairs(path: readonly string[]): Set<string> {
   const pairs = new Set<string>();

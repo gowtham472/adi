@@ -1,6 +1,8 @@
+import { ArrowsClockwiseIcon, PencilSimpleIcon, TargetIcon } from '@phosphor-icons/react';
 import { stringify } from 'yaml';
-import type { ChangeSet, ChangeImpact } from '@adi/engine/types';
+import type { ChangeImpact, ChangeSet } from '@adi/engine/types';
 import { plural } from '../lib/format.ts';
+import { ResourceGlyph } from '../lib/icons.tsx';
 import { ActionBadge } from './Badges.tsx';
 
 /** Values are shown as YAML, the form most CloudFormation authors read templates in. */
@@ -29,51 +31,50 @@ export function ChangeList({ changeSet, impacts }: { changeSet: ChangeSet; impac
         const impact = impactById.get(change.resourceId);
         return (
           <li key={change.resourceId} className="change-item">
-            <div className="change-heading">
+            <header className="change-heading">
+              <span className="icon-tile">
+                <ResourceGlyph type={change.resourceType} weight="bold" aria-hidden="true" />
+              </span>
+              <span className="change-name">
+                <code>{change.resourceId}</code>
+                <span className="muted">{change.resourceType}</span>
+              </span>
               <ActionBadge action={change.action} />
-              <code className="change-id">{change.resourceId}</code>
-              <span className="muted">{change.resourceType}</span>
-            </div>
+            </header>
             <div className="change-facts">
-              {change.action !== 'CREATE' && change.action !== 'DELETE' && <span>{REPLACEMENT_LABEL[change.replacement]}</span>}
-              {change.replacementCauses.length > 0 && <span>Caused by {change.replacementCauses.join(', ')}</span>}
+              {change.action !== 'CREATE' && change.action !== 'DELETE' && (
+                <span>
+                  {change.replacement === 'REQUIRED' ? (
+                    <ArrowsClockwiseIcon weight="bold" aria-hidden="true" />
+                  ) : (
+                    <PencilSimpleIcon weight="bold" aria-hidden="true" />
+                  )}
+                  {REPLACEMENT_LABEL[change.replacement]}
+                  {change.replacementCauses.length > 0 && ` by ${change.replacementCauses.join(', ')}`}
+                </span>
+              )}
               {impact !== undefined && (
                 <span>
-                  Reaches {plural(impact.affected.length, 'resource')}, blast radius {impact.blastRadius.toLowerCase()}
+                  <TargetIcon weight="bold" aria-hidden="true" />
+                  Reaches {plural(impact.affected.length, 'resource')}, {impact.blastRadius.toLowerCase()} blast radius
                 </span>
               )}
             </div>
-            {change.changedProperties.length > 0 && (
-              <table className="property-diff">
-                <colgroup>
-                  <col className="property-column" />
-                  <col />
-                  <col />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th>Property</th>
-                    <th>Current</th>
-                    <th>Proposed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {change.changedProperties.map((name) => (
-                    <tr key={name}>
-                      <td>
-                        <code>{name}</code>
-                      </td>
-                      <td>
-                        <pre>{render(change.before?.[name])}</pre>
-                      </td>
-                      <td>
-                        <pre>{render(change.after?.[name])}</pre>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            {change.changedProperties.map((name) => (
+              <div key={name} className="property-diff">
+                <code className="property-name">{name}</code>
+                <div className="diff-panes">
+                  <div className="diff-pane before">
+                    <span className="diff-label">Current</span>
+                    <pre>{render(change.before?.[name])}</pre>
+                  </div>
+                  <div className="diff-pane after">
+                    <span className="diff-label">Proposed</span>
+                    <pre>{render(change.after?.[name])}</pre>
+                  </div>
+                </div>
+              </div>
+            ))}
           </li>
         );
       })}
