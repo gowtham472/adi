@@ -376,6 +376,6 @@ Read `AGENTS.md` before making any change. It defines the engineering standards,
 
 ## 13. Tools and license
 
-Built for the WeMakeDevs x AWS First Commit hackathon, 17 to 20 September 2026. Claude Code (Anthropic) was used as an AI pair programmer throughout; commits it contributed to carry a `Co-Authored-By` trailer. Third party code comes in only as open source dependencies declared in the `package.json` files.
+Built for the WeMakeDevs x AWS First Commit hackathon, 17 to 20 September 2026. Claude Code (Anthropic) was used as an AI pair programmer throughout; commits it contributed to carry a `Co-Authored-By` trailer. Third party code comes in only as open source dependencies declared in the `package.json` files. The resource icons in `web/public/aws-icons` are from the [AWS Architecture Icons](https://aws.amazon.com/architecture/icons/) package, which AWS provides for architecture diagrams; the dashboard draws them in its own palette to show each resource's state. Resource types without an official icon use [Phosphor](https://phosphoricons.com) icons.
 
 Released under the MIT License. See [LICENSE](LICENSE).

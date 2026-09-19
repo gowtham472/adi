@@ -66,10 +66,49 @@ const RESOURCE_ICONS: Readonly<Record<string, Icon>> = {
   'AWS::SQS::Queue': TrayIcon,
 };
 
+/**
+ * Resource types with an official AWS Architecture Icon, served from public/aws-icons. The
+ * icons are drawn as masks in the current text colour, so graph state colours apply to them.
+ * Types AWS publishes no resource icon for, such as security groups, keep a generic glyph
+ * rather than borrowing an icon for a different resource.
+ */
+const AWS_ICONS: Readonly<Record<string, string>> = {
+  'AWS::EC2::VPC': 'vpc',
+  'AWS::EC2::InternetGateway': 'internet-gateway',
+  'AWS::EC2::VPCGatewayAttachment': 'internet-gateway',
+  'AWS::EC2::RouteTable': 'router',
+  'AWS::EC2::Route': 'router',
+  'AWS::EC2::SubnetRouteTableAssociation': 'router',
+  'AWS::RDS::DBInstance': 'rds-instance',
+  'AWS::RDS::DBCluster': 'rds-instance',
+  'AWS::ElasticLoadBalancingV2::LoadBalancer': 'application-load-balancer',
+  'AWS::ECS::TaskDefinition': 'ecs-task',
+  'AWS::ECS::Service': 'ecs-service',
+  'AWS::IAM::Role': 'iam-role',
+  'AWS::IAM::Policy': 'iam-permissions',
+  'AWS::IAM::ManagedPolicy': 'iam-permissions',
+  'AWS::Logs::LogGroup': 'cloudwatch-logs',
+  'AWS::Lambda::Function': 'lambda-function',
+  'AWS::DynamoDB::Table': 'dynamodb-table',
+  'AWS::S3::Bucket': 's3-bucket',
+  'AWS::SQS::Queue': 'sqs-queue',
+};
+
 /** The icon for a CloudFormation resource type, with a cube for types without one. */
-export function ResourceGlyph({ type, ...props }: { type: string } & IconProps) {
+export function ResourceGlyph({ type, className, ...props }: { type: string } & IconProps) {
+  const icon = AWS_ICONS[type];
+  if (icon !== undefined) {
+    const url = `url("${import.meta.env.BASE_URL}aws-icons/${icon}.svg")`;
+    return (
+      <span
+        className={['aws-glyph', className].filter(Boolean).join(' ')}
+        style={{ maskImage: url, WebkitMaskImage: url }}
+        aria-hidden="true"
+      />
+    );
+  }
   const Glyph = RESOURCE_ICONS[type] ?? CubeIcon;
-  return <Glyph {...props} />;
+  return <Glyph className={className} {...props} />;
 }
 
 export const EVIDENCE_ICONS: Readonly<Record<EvidenceSource, Icon>> = {

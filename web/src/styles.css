@@ -2783,6 +2783,21 @@ svg[class*='tone-'] {
   transform: translateX(3px);
 }
 
+/* AWS Architecture Icons, drawn in the current text colour. */
+.aws-glyph {
+  display: inline-block;
+  flex: none;
+  width: 1.2em;
+  height: 1.2em;
+  background-color: currentColor;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+}
+
 /* Overview page */
 
 .page-home {

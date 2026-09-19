@@ -52,7 +52,7 @@ export function HomeView() {
 
   return (
     <div className="page-home">
-      <section className="hero hero-split">
+      <section className="hero">
         <div className="hero-text">
           <h1 className="display">
             <span className="keyword">if</span> change: trace_impact()
