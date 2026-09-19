@@ -424,7 +424,20 @@ Status on 18 September: every objective through 19 September is met except Bedro
 
 Read `AGENTS.md` before making any change. It defines the engineering standards, the verification required before every commit, and the process for anything that touches scope.
 
-## 13. Tools and license
+## 13. Team
+
+Built by a team of four for the WeMakeDevs x AWS First Commit hackathon.
+
+| Member | GitHub | Contribution |
+|---|---|---|
+| Gowtham K (team lead) | [@gowtham472](https://github.com/gowtham472) | Led the team and worked across every part of the project, including the research |
+| Jaya Suriya T R | [@jayasuriyatr](https://github.com/jayasuriyatr) | Research and development |
+| Pranav A S | [@pranav280400](https://github.com/pranav280400) | Design, icons and resources |
+| Kannan K | [@sanjaykannan8](https://github.com/sanjaykannan8) | Deployment and security |
+
+The repository history is committed from the team lead's account.
+
+## 14. Tools and license
 
 Built for the WeMakeDevs x AWS First Commit hackathon, 17 to 20 September 2026. Claude Code (Anthropic) was used as an AI pair programmer throughout; commits it contributed to carry a `Co-Authored-By` trailer. Third party code comes in only as open source dependencies declared in the `package.json` files. The resource icons in `web/public/aws-icons` are from the [AWS Architecture Icons](https://aws.amazon.com/architecture/icons/) package, which AWS provides for architecture diagrams; the dashboard draws them in its own palette to show each resource's state. Resource types without an official icon use [Phosphor](https://phosphoricons.com) icons. The illustrations in `web/public/illustrations` are from [unDraw](https://undraw.co) by Katerina Limpitsouni, recoloured for the dashboard's theme under the unDraw license.
 
