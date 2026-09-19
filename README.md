@@ -8,7 +8,7 @@ CloudFormation reports `UPDATE_COMPLETE`. A change set lists the resources Cloud
 
 **Event:** WeMakeDevs x AWS First Commit, 17 to 20 September 2026
 **Track:** Ship It
-**Repository initialized:** 17 September 2026, at the start of the build window
+**Repository initialized:** 18 September 2026, during the build window
 
 ---
 
@@ -24,7 +24,7 @@ flowchart LR
     D -->|Unknown| E[Find out from<br/>production alarms]
 ```
 
-A CloudFormation change set for that edit lists exactly one modified resource. It says nothing about the ECS service that uses the security group, or the RDS instance the service connects to through it. The dependency information exists in the template, but nothing traverses it on the developer's behalf.
+A CloudFormation change set for that edit lists the security group and the resources that reference it as modifications, with no warning. It says nothing about the ECS service losing its path to the RDS instance through that group. The dependency information exists in the template, but nothing traverses it on the developer's behalf.
 
 ## 2. What ADI does
 
