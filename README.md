@@ -244,7 +244,6 @@ Two npm workspaces, `engine` and `web`.
 ├── docs/
 │   ├── decisions/                One file per decision worth recording
 │   ├── aws-setup.md              From an empty AWS account to a deployed platform
-│   ├── demo-script.md            The exact sequence recorded for the video
 │   └── deferred.md               Out of scope ideas, captured and not built
 └── .github/workflows/            CI, template validation, and the pull request review
 ```

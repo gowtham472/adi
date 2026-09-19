@@ -219,8 +219,8 @@ Run these from the project folder. They use the credentials from section 5.
    npm run demo:load -- http://your-application-url
    ```
 
-From here, follow steps 5 and 6 of the README's deployment section, or
-[docs/demo-script.md](demo-script.md) for the full recorded sequence.
+From here, follow steps 5 and 6 of the README's deployment section to analyze a change,
+deploy it, and verify the prediction.
 
 ## 8. When something goes wrong
 
