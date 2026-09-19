@@ -13,20 +13,20 @@ interface Step {
 }
 
 /**
- * How the connector between two steps is drawn: filled when both are done, carrying a
- * moving marker when the next step is the one to take, dotted when the next step does
- * not apply, and plain otherwise.
+ * How the connector into a step is drawn: filled when the step is done, dotted when it
+ * does not apply, carrying a moving marker when it is the first step still to take, and
+ * plain otherwise. Skipped steps before it do not hide where the flow goes next.
  */
 type LinkState = 'DONE' | 'NEXT' | 'SKIPPED' | 'IDLE';
 
-function linkBetween(from: Step, to: Step): LinkState {
+function linkInto(to: Step, isNext: boolean): LinkState {
   if (to.state === 'DONE') {
     return 'DONE';
   }
   if (to.state === 'SKIPPED') {
     return 'SKIPPED';
   }
-  return from.state === 'DONE' ? 'NEXT' : 'IDLE';
+  return isNext ? 'NEXT' : 'IDLE';
 }
 
 function steps(record: AnalysisRecord, explanationTimedOut: boolean): Step[] {
@@ -67,11 +67,12 @@ function steps(record: AnalysisRecord, explanationTimedOut: boolean): Step[] {
 /** Where this analysis stands in the analyze, explain, deploy, verify loop. */
 export function Lifecycle({ record, explanationTimedOut }: { record: AnalysisRecord; explanationTimedOut: boolean }) {
   const list = steps(record, explanationTimedOut);
+  const nextIndex = list.findIndex((step) => step.state === 'WAITING' || step.state === 'ACTIVE');
   return (
     <ol className="lifecycle" aria-label="Analysis lifecycle">
       {list.map((step, index) => {
         const next = list[index + 1];
-        const link = next === undefined ? undefined : linkBetween(step, next);
+        const link = next === undefined ? undefined : linkInto(next, index + 1 === nextIndex);
         return (
           <li key={step.title} className={`lifecycle-step step-${step.state.toLowerCase()}`}>
             <div className="lifecycle-track">

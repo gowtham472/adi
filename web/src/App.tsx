@@ -152,7 +152,7 @@ export function App() {
           </button>
           <a className="brand" href="#/">
             <LogoMark className="brand-mark" />
-            <span className="brand-name">adi</span>
+            <span className="brand-name">ADI</span>
             <span className="brand-divider" aria-hidden="true" />
             <span className="brand-product">Deployment Intelligence</span>
           </a>
