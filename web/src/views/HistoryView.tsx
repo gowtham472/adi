@@ -65,7 +65,7 @@ export function HistoryView() {
         </h1>
         <p className="lead">Every change analyzed, with its highest severity and whether verification confirmed it.</p>
         <div className="hero-actions">
-          <a className="button button-solid" href="#/">
+          <a className="button button-solid" href="#/analyze">
             <PlusIcon weight="bold" aria-hidden="true" />
             New analysis
           </a>
@@ -87,7 +87,7 @@ export function HistoryView() {
           <GitDiffIcon weight="bold" aria-hidden="true" />
           <h3>No analyses yet</h3>
           <p>
-            <a href="#/">Analyze a change</a> to see it here.
+            <a href="#/analyze">Analyze a change</a> to see it here.
           </p>
         </div>
       )}

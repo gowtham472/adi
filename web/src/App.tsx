@@ -3,6 +3,7 @@ import {
   CaretDownIcon,
   ClockCounterClockwiseIcon,
   FlaskIcon,
+  GitDiffIcon,
   HouseSimpleIcon,
   ListChecksIcon,
   ListIcon,
@@ -19,8 +20,9 @@ import { EXAMPLES } from './lib/examples.ts';
 import { SEVERITY_ICONS } from './lib/icons.tsx';
 import { RULES } from './lib/rules.ts';
 import { readPreference, writePreference } from './lib/preferences.ts';
+import { AnalyzeView, type AnalyzeMode } from './views/AnalyzeView.tsx';
 import { HistoryView } from './views/HistoryView.tsx';
-import { NewAnalysisView } from './views/NewAnalysisView.tsx';
+import { HomeView } from './views/HomeView.tsx';
 import { RulesView } from './views/RulesView.tsx';
 
 /**
@@ -30,12 +32,19 @@ import { RulesView } from './views/RulesView.tsx';
 const AnalysisView = lazy(() => import('./views/AnalysisView.tsx').then((m) => ({ default: m.AnalysisView })));
 
 type Route =
-  | { readonly view: 'NEW'; readonly exampleId?: string }
+  | { readonly view: 'HOME' }
+  | { readonly view: 'ANALYZE'; readonly mode: AnalyzeMode; readonly exampleId?: string }
   | { readonly view: 'HISTORY' }
   | { readonly view: 'RULES' }
   | { readonly view: 'ANALYSIS'; readonly analysisId: string };
 
 type NavPreference = 'EXPANDED' | 'COLLAPSED';
+
+const ANALYZE_ROUTES: Readonly<Record<string, AnalyzeMode>> = {
+  '#/analyze': 'TEMPLATE',
+  '#/analyze/stack': 'STACK',
+  '#/analyze/change-set': 'CHANGE_SET',
+};
 
 /** Hash routes keep the dashboard a static site that any host can serve without rewrites. */
 function parseRoute(hash: string): Route {
@@ -45,12 +54,16 @@ function parseRoute(hash: string): Route {
   }
   const example = /^#\/new\/([^/]+)$/.exec(hash);
   if (example?.[1] !== undefined) {
-    return { view: 'NEW', exampleId: decodeURIComponent(example[1]) };
+    return { view: 'ANALYZE', mode: 'TEMPLATE', exampleId: decodeURIComponent(example[1]) };
+  }
+  const analyze = ANALYZE_ROUTES[hash];
+  if (analyze !== undefined) {
+    return { view: 'ANALYZE', mode: analyze };
   }
   if (hash === '#/analyses') {
     return { view: 'HISTORY' };
   }
-  return hash === '#/rules' ? { view: 'RULES' } : { view: 'NEW' };
+  return hash === '#/rules' ? { view: 'RULES' } : { view: 'HOME' };
 }
 
 function NavSection({ icon: SectionIcon, title, children }: { icon: Icon; title: string; children: ReactNode }) {
@@ -102,7 +115,7 @@ export function App() {
     window.location.hash = `#/analyses/${record.analysisId}`;
   };
 
-  const activeExample = route.view === 'NEW' ? route.exampleId : undefined;
+  const activeExample = route.view === 'ANALYZE' ? route.exampleId : undefined;
   const isActive = (view: Route['view']) => route.view === view && activeExample === undefined;
 
   return (
@@ -141,7 +154,7 @@ export function App() {
           <a className="icon-button" href="#/rules" title="Rules" aria-label="Rules">
             <BookOpenIcon weight="bold" />
           </a>
-          <a className="button button-solid" href="#/">
+          <a className="button button-solid" href="#/analyze">
             <PlusIcon weight="bold" aria-hidden="true" />
             <span className="hide-narrow">New analysis</span>
           </a>
@@ -154,12 +167,15 @@ export function App() {
         <nav className={`sidenav ${drawerOpen ? 'drawer-open' : ''}`} aria-label="Main">
           <div className="sidenav-full">
             <p className="sidenav-title">Change Analysis</p>
-            <a href="#/" className={`nav-link nav-primary ${isActive('NEW') ? 'active' : ''}`}>
-              <HouseSimpleIcon weight="bold" aria-hidden="true" />
+            <a href="#/analyze" className={`nav-link nav-primary ${isActive('ANALYZE') ? 'active' : ''}`}>
+              <GitDiffIcon weight="bold" aria-hidden="true" />
               Analyze a change
             </a>
 
             <NavSection icon={ClockCounterClockwiseIcon} title="Workspace">
+              <a href="#/" className={`nav-link ${route.view === 'HOME' ? 'active' : ''}`}>
+                Overview
+              </a>
               <a href="#/analyses" className={`nav-link ${route.view === 'HISTORY' ? 'active' : ''}`}>
                 Analyses
               </a>
@@ -194,8 +210,11 @@ export function App() {
           </div>
 
           <div className="sidenav-rail">
-            <a href="#/" className={`rail-link ${isActive('NEW') ? 'active' : ''}`} title="Analyze a change" aria-label="Analyze a change">
+            <a href="#/" className={`rail-link ${route.view === 'HOME' ? 'active' : ''}`} title="Overview" aria-label="Overview">
               <HouseSimpleIcon weight="bold" />
+            </a>
+            <a href="#/analyze" className={`rail-link ${isActive('ANALYZE') ? 'active' : ''}`} title="Analyze a change" aria-label="Analyze a change">
+              <GitDiffIcon weight="bold" />
             </a>
             <a href="#/analyses" className={`rail-link ${route.view === 'HISTORY' ? 'active' : ''}`} title="Analyses" aria-label="Analyses">
               <ClockCounterClockwiseIcon weight="bold" />
@@ -219,8 +238,14 @@ export function App() {
         </nav>
 
         <main className="main">
-          {route.view === 'NEW' && (
-            <NewAnalysisView key={route.exampleId ?? 'blank'} exampleId={route.exampleId} onCreated={onCreated} />
+          {route.view === 'HOME' && <HomeView />}
+          {route.view === 'ANALYZE' && (
+            <AnalyzeView
+              key={route.exampleId ?? route.mode}
+              exampleId={route.exampleId}
+              mode={route.mode}
+              onCreated={onCreated}
+            />
           )}
           {route.view === 'HISTORY' && <HistoryView />}
           {route.view === 'RULES' && <RulesView />}
