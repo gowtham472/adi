@@ -1,10 +1,41 @@
-# AWS Deployment Intelligence (ADI)
+<p align="center">
+  <img src="web/public/favicon.svg" width="72" height="72" alt="ADI logo">
+</p>
 
-A dependency-aware change impact engine for AWS infrastructure.
+<h1 align="center">AWS Deployment Intelligence (ADI)</h1>
+
+<p align="center">A dependency-aware change impact engine for AWS infrastructure.</p>
+
+<p align="center">
+  <a href="https://github.com/gowtham472/adi/actions/workflows/ci.yml"><img src="https://github.com/gowtham472/adi/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/deployed%20on-AWS-ff9900" alt="Deployed on AWS">
+</p>
+
+<p align="center">
+  <a href="https://main.dzplu6xo44b8o.amplifyapp.com"><strong>Live dashboard</strong></a>
+  ·
+  <a href="docs/live-verification.md">Live verification record</a>
+  ·
+  <a href="https://github.com/gowtham472/adi/pull/2">Pull request review example</a>
+</p>
 
 ADI answers one question that existing deployment tooling does not: **if I deploy this change, what else can it break?**
 
 CloudFormation reports `UPDATE_COMPLETE`. A change set lists the resources CloudFormation will touch. Neither tells you that removing TCP/5432 from one security group will take the application database offline. ADI builds a dependency graph of the stack, diffs the proposed template against the current one, propagates the change through the graph, and reports the affected resources with the evidence supporting each conclusion. After the change is deployed, it compares the predicted impact against real CloudWatch telemetry.
+
+![An analysis of a security group change: the lifecycle ending in a matched verification, the impact graph from the security group to the service, and the evidence behind the finding](docs/images/analysis.png)
+
+**At a glance**
+
+| | |
+|---|---|
+| Proven on real AWS | Four live runs against an ALB, ECS Fargate and RDS stack. A one-port typo was predicted as HIGH before deployment, then confirmed by CloudWatch: database connections 2 to 0, target errors 0 to about 290 a minute. Details in [docs/live-verification.md](docs/live-verification.md) |
+| Honest verification | Each prediction is checked afterwards and reported as `MATCHED`, `UNCONFIRMED` or `CONTRADICTED`. A flat signal is never read as confirmation |
+| Deterministic findings | Six rules decide every finding, and every fact cites its source. Claude on Amazon Bedrock explains findings; it never produces them |
+| Four ways in | Paste two templates, compare with a deployed stack, read a CloudFormation change set, or review a pull request on GitHub |
+| Built on AWS | Lambda, API Gateway, DynamoDB, Amplify Hosting, CloudFormation, CloudWatch and Amazon Bedrock, with a read only IAM role scoped to the analyzed stack and its logs |
+| Tested | 141 automated tests, including an exact expected result for every scenario, run on every push |
 
 **Event:** WeMakeDevs x AWS First Commit, 17 to 20 September 2026
 **Track:** Ship It
@@ -48,6 +79,16 @@ flowchart TD
 
 The pipeline is deterministic up to the Bedrock step. Rules, graph traversal and evidence collection produce the findings. Bedrock explains findings that already exist. If Bedrock is unavailable, the analysis still completes without the narrative layer.
 
+### In the dashboard
+
+The workspace: choose what the proposed change is compared against, load one of the six examples or paste a template, and analyze.
+
+![The analysis workspace with the current and proposed templates side by side and the Analyze change button](docs/images/analyze.png)
+
+Every analysis is kept, with its highest severity and whether verification confirmed it.
+
+![The analyses list, with severity filters, search and verification status for each analysis](docs/images/history.png)
+
 ## 3. Scope
 
 This section is the contract. Anything not listed under **In scope** is not built.
@@ -63,7 +104,7 @@ This section is the contract. Anything not listed under **In scope** is not buil
 | Evidence | Every finding carries the facts it was derived from, each attributed to its source (template, diff or graph). No finding without evidence. |
 | Bedrock explanation | One Bedrock invocation per analysis, over the compressed finding set. Grounded prompt, JSON response, sanitized input. |
 | Verification | For the primary scenario, collect the declared CloudWatch signals before and after deployment and report `MATCHED`, `UNCONFIRMED` or `CONTRADICTED`. Signals are metrics, or log patterns counted per minute in a log group the stack creates. |
-| Web dashboard | Three views: graph, findings, verification. Deployed on Amplify Hosting with a public URL. |
+| Web dashboard | An overview, an analysis workspace, the analysis itself (impact graph, findings, verification), the history of analyses and the rules. Deployed on Amplify Hosting with a public URL. |
 | Change set input | Analyze a CloudFormation change set already created on the stack: the proposed template comes from the change set, and CloudFormation's `Replacement: True` or `False` for each modified resource replaces the documented replacement table. `Conditional` leaves the table's answer. Reading never executes the change set. Added after the core build plan was complete. |
 | Pull request review | A GitHub Actions workflow analyzes every CloudFormation template a pull request adds or modifies, comments with the findings, and fails the check at a configurable severity. Added after the core build plan was complete. |
 | Demo environment | One live ALB to ECS to RDS stack in a single region, deployed once and kept stable. |
@@ -244,6 +285,7 @@ Two npm workspaces, `engine` and `web`.
 ├── docs/
 │   ├── decisions/                One file per decision worth recording
 │   ├── aws-setup.md              From an empty AWS account to a deployed platform
+│   ├── images/                   Screenshots used in this README
 │   ├── live-verification.md      Every live run: predictions, measurements and verdicts
 │   └── deferred.md               Out of scope ideas, captured and not built
 └── .github/workflows/            CI, template validation, and the pull request review
@@ -330,6 +372,8 @@ Executing the change set is the deployment, and verification then works as it do
 ### Reviewing pull requests
 
 `.github/workflows/adi-review.yml` runs on every pull request that changes a YAML, JSON or `.template` file. It finds the CloudFormation templates among them, analyzes each against its version at the base of the pull request, and posts the report as a comment that later pushes update in place. The same report goes to the job summary, which also covers pull requests from forks, whose token cannot comment.
+
+![ADI's comment on a pull request that changes the database ingress port: the summary table, the HIGH finding with its causal path, evidence, expected signals and recommendation](docs/images/pull-request-review.png)
 
 The analysis runs inside the job with the same engine, so the review needs no AWS access. Three optional repository variables change its behavior:
 
