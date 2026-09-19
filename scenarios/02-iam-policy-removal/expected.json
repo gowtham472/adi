@@ -1,5 +1,5 @@
 {
-  "description": "The inline policy that lets the task execution role read the database secret is removed. Running tasks keep working because they already hold the secret; the next task launch cannot inject DB_PASSWORD and fails to start.",
+  "description": "The inline policy that lets the task execution role read the database secret is removed. Running tasks keep working because they already hold the secret; the next task launch cannot inject DB_PASSWORD and fails to start. Verified live on 19 September 2026 as UNCONFIRMED: HealthyHostCount stayed at 2, because no task restarted during the observation window.",
   "changes": [{ "resourceId": "TaskExecutionRole", "action": "UPDATE" }],
   "findings": [
     {

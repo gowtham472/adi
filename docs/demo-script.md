@@ -13,8 +13,9 @@ Timings are targets, not limits.
   minutes of video, so the recording shows that earlier analysis for the verification step.
   It is a real result from the same pipeline, and the video says so.
 - Scenario 02 has been run the same way, so the Unconfirmed result shown in the
-  verification step is a real one. It has not been run live yet. Scenario 04, once planned
-  for this, verified live as Matched, so it cannot serve.
+  verification step is a real one: run live on 19 September, analysis `ed20b6d9`,
+  HealthyHostCount unchanged at 2. Scenario 04, once planned for this, verified live as
+  Matched, so it cannot serve.
 - The baseline has been restored with `npm run deploy:demo` after that run, and traffic is
   flowing normally again.
 - A change set named `scenario-01` exists on `adi-demo`, created with the command in the
