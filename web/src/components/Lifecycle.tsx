@@ -54,7 +54,7 @@ function steps(record: AnalysisRecord, explanationTimedOut: boolean): Step[] {
       ? { title: 'Verified', state: 'DONE', detail: status.charAt(0) + status.slice(1).toLowerCase(), tone: status.toLowerCase() }
       : record.stackName === undefined
         ? { title: 'Verified', state: 'SKIPPED', detail: 'Needs a deployed stack' }
-        : { title: 'Verify', state: 'WAITING', detail: 'After the stack update' };
+        : { title: 'Verify', state: 'WAITING', detail: 'Automatic after the update' };
 
   return [
     { title: 'Analyzed', state: 'DONE', detail: `${String(record.findings.length)} finding${record.findings.length === 1 ? '' : 's'}` },

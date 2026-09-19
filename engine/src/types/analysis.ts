@@ -36,6 +36,11 @@ export interface TimeWindow {
 
 export interface VerificationRecord {
   readonly verifiedAt: string;
+  /**
+   * `AUTOMATIC` when the verification ran by itself after a stack update, started by
+   * EventBridge and Step Functions. Absent when someone chose Verify deployment.
+   */
+  readonly trigger?: 'AUTOMATIC';
   /** The stack update the verification measured, taken from CloudFormation stack events. */
   readonly deployment: {
     readonly startedAt: string;

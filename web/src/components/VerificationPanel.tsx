@@ -98,9 +98,18 @@ export function VerificationPanel({ record, onVerified }: VerificationPanelProps
         <div>
           <h3>Did the prediction hold?</h3>
           <p>
-            Deploy the proposed template to <code>{record.stackName}</code>, then verify. ADI finds the first stack update
-            after this analysis in CloudFormation's events and compares each predicted signal in the fifteen minutes before it
-            with the period after it.
+            {verification?.trigger === 'AUTOMATIC' ? (
+              <>
+                Verified automatically. EventBridge saw the update of <code>{record.stackName}</code> complete, and a Step
+                Functions workflow ran verification six minutes later, once CloudWatch had data from after the change.
+              </>
+            ) : (
+              <>
+                Deploy the proposed template to <code>{record.stackName}</code>. About six minutes after the stack update
+                completes, ADI verifies by itself: it finds the update in CloudFormation's events and compares each
+                predicted signal in the fifteen minutes before it with the period after it. You can also verify now.
+              </>
+            )}
           </p>
         </div>
         <button type="button" className="primary" onClick={() => void verify()} disabled={running}>

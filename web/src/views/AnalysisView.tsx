@@ -27,6 +27,13 @@ import { VerificationPanel } from '../components/VerificationPanel.tsx';
 import { plural, relativeTime } from '../lib/format.ts';
 
 const POLL_INTERVAL_MS = 3000;
+/**
+ * A stack analysis still waiting on its deployment is re-read at this slower pace, so a
+ * verification that runs automatically after the stack update appears without a reload.
+ */
+const VERIFICATION_POLL_MS = 20_000;
+/** Automatic verification only considers analyses from the last day. */
+const VERIFICATION_WATCH_MS = 24 * 60 * 60 * 1000;
 /** The explanation function times out after five minutes; past this the record will not change. */
 const EXPLANATION_DEADLINE_MS = 6 * 60 * 1000;
 const RADIUS_ORDER: readonly BlastRadius[] = ['APPLICATION', 'SERVICE', 'LOCAL'];
@@ -37,6 +44,15 @@ const RADIUS_LABEL: Readonly<Record<BlastRadius, string>> = {
 };
 
 type Tab = 'CHANGES' | 'VERIFICATION';
+
+function awaitingVerification(record: AnalysisRecord): boolean {
+  return (
+    record.stackName !== undefined &&
+    record.findings.length > 0 &&
+    record.verification === undefined &&
+    Date.now() - Date.parse(record.createdAt) < VERIFICATION_WATCH_MS
+  );
+}
 
 function explanationTimedOut(record: AnalysisRecord): boolean {
   return record.explanationStatus === 'PENDING' && Date.now() - Date.parse(record.createdAt) > EXPLANATION_DEADLINE_MS;
@@ -75,6 +91,8 @@ export function AnalysisView({ analysisId, initial }: { analysisId: string; init
         setRecord(next);
         if (next.explanationStatus === 'PENDING' && !explanationTimedOut(next)) {
           timer = setTimeout(() => void load(), POLL_INTERVAL_MS);
+        } else if (awaitingVerification(next)) {
+          timer = setTimeout(() => void load(), VERIFICATION_POLL_MS);
         }
       } catch (caught) {
         if (!cancelled) {

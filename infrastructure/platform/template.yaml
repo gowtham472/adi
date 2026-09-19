@@ -160,6 +160,89 @@ Resources:
               Action: bedrock-mantle:CreateInference
               Resource: '*'
 
+  # Verifies the analyzed stack's pending analyses by itself after each update, so a
+  # prediction is checked without anyone choosing Verify deployment. It reads the same
+  # things as the API: the stack's events and resources, metrics, and the stack's logs.
+  AutoVerifyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../engine/dist/handlers/auto-verify
+      Timeout: 120
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AnalysesTable
+        - Statement:
+            - Sid: ReadAnalyzedStack
+              Effect: Allow
+              Action:
+                - cloudformation:ListStackResources
+                - cloudformation:DescribeStackEvents
+              Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AnalyzedStackName}/*
+            # GetMetricData does not support resource level permissions.
+            - Sid: ReadMetrics
+              Effect: Allow
+              Action: cloudwatch:GetMetricData
+              Resource: '*'
+            - Sid: ReadStackLogs
+              Effect: Allow
+              Action: logs:FilterLogEvents
+              Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${AnalyzedStackName}-*
+
+  # CloudFormation publishes stack status changes to the default event bus. When an update
+  # of the analyzed stack finishes, this workflow waits six minutes for CloudWatch to
+  # collect data after the change, then verifies. A Wait state costs nothing while it waits,
+  # where a Lambda function would be billed for sleeping.
+  VerificationStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Type: STANDARD
+      Definition:
+        Comment: Verify pending ADI analyses after an update of the analyzed stack
+        StartAt: WaitForMetrics
+        States:
+          WaitForMetrics:
+            Type: Wait
+            Seconds: 360
+            Next: VerifyPendingAnalyses
+          VerifyPendingAnalyses:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            Parameters:
+              FunctionName: ${AutoVerifyFunctionArn}
+              Payload.$: $
+            OutputPath: $.Payload
+            Retry:
+              - ErrorEquals:
+                  - Lambda.ServiceException
+                  - Lambda.AWSLambdaException
+                  - Lambda.SdkClientException
+                  - Lambda.TooManyRequestsException
+                IntervalSeconds: 5
+                MaxAttempts: 3
+                BackoffRate: 2
+            End: true
+      DefinitionSubstitutions:
+        AutoVerifyFunctionArn: !GetAtt AutoVerifyFunction.Arn
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref AutoVerifyFunction
+      Events:
+        AnalyzedStackUpdated:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source:
+                - aws.cloudformation
+              detail-type:
+                - CloudFormation Stack Status Change
+              detail:
+                stack-id:
+                  - prefix: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AnalyzedStackName}/
+                status-details:
+                  status:
+                    - UPDATE_COMPLETE
+                    - UPDATE_ROLLBACK_COMPLETE
+
   DashboardApp:
     Type: AWS::Amplify::App
     Properties:
@@ -184,6 +267,9 @@ Outputs:
   DashboardAppId:
     Description: Amplify app that hosts the dashboard
     Value: !GetAtt DashboardApp.AppId
+  VerificationStateMachineArn:
+    Description: Step Functions workflow that verifies analyses after each stack update
+    Value: !Ref VerificationStateMachine
   DashboardUrl:
     Description: Public URL of the dashboard
     Value: !Sub https://main.${DashboardApp.DefaultDomain}

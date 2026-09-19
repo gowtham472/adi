@@ -2,7 +2,7 @@ import { parseTemplate, TemplateParseError } from '../aws/cloudformation/parse.t
 import type { AnalysisRepository } from '../aws/dynamodb/repository.ts';
 import { RecordTooLarge } from '../aws/dynamodb/repository.ts';
 import { analyzeTemplates } from '../core/pipeline.ts';
-import { assessFinding } from '../core/verification/assess.ts';
+import { assessFinding, overallStatus } from '../core/verification/assess.ts';
 import { findDeployment, verificationWindows, type StackEvent } from '../core/verification/deployment.ts';
 import type {
   AnalysisRecord,
@@ -193,7 +193,11 @@ export async function explainAnalysis(deps: ServiceDependencies, analysisId: str
   }
 }
 
-export async function verifyAnalysis(deps: ServiceDependencies, analysisId: string): Promise<VerificationRecord> {
+export async function verifyAnalysis(
+  deps: ServiceDependencies,
+  analysisId: string,
+  trigger?: 'AUTOMATIC',
+): Promise<VerificationRecord> {
   const record = await getAnalysis(deps, analysisId);
   if (record.stackName === undefined) {
     throw new HttpError(400, 'Verification needs an analysis made against a deployed stack');
@@ -223,6 +227,7 @@ export async function verifyAnalysis(deps: ServiceDependencies, analysisId: stri
 
   const verification: VerificationRecord = {
     verifiedAt: deps.now().toISOString(),
+    ...(trigger === undefined ? {} : { trigger }),
     deployment: {
       startedAt: deployment.startedAt.toISOString(),
       completedAt: deployment.completedAt.toISOString(),
@@ -234,4 +239,48 @@ export async function verifyAnalysis(deps: ServiceDependencies, analysisId: stri
   };
   await deps.repository.recordVerification(analysisId, verification);
   return verification;
+}
+
+/** How far back automatic verification looks for analyses still waiting on a deployment. */
+const PENDING_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** The analyses scanned for pending verification; ample for one stack's recent history. */
+const PENDING_SCAN_LIMIT = 200;
+
+export interface AutomaticVerification {
+  readonly analysisId: string;
+  /** The overall verdict, or why the analysis was skipped. */
+  readonly outcome: string;
+}
+
+/**
+ * Runs after an update of `stackName` completes. Verifies every analysis of that stack from
+ * the last day that has findings and no verification yet, so a prediction is checked
+ * without anyone choosing Verify deployment. An analysis whose deployment has not happened
+ * or not finished is skipped with the reason, and is picked up by a later update.
+ */
+export async function verifyPendingAnalyses(deps: ServiceDependencies, stackName: string): Promise<AutomaticVerification[]> {
+  const cutoff = deps.now().getTime() - PENDING_WINDOW_MS;
+  const pending = (await deps.repository.list(PENDING_SCAN_LIMIT)).filter(
+    (summary) =>
+      summary.stackName === stackName &&
+      summary.findingCount > 0 &&
+      summary.verificationStatus === undefined &&
+      Date.parse(summary.createdAt) >= cutoff,
+  );
+
+  const results: AutomaticVerification[] = [];
+  for (const summary of pending) {
+    try {
+      const verification = await verifyAnalysis(deps, summary.analysisId, 'AUTOMATIC');
+      results.push({ analysisId: summary.analysisId, outcome: overallStatus(verification.findings) ?? 'NO_FINDINGS' });
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 409) {
+        results.push({ analysisId: summary.analysisId, outcome: `SKIPPED: ${error.message}` });
+        continue;
+      }
+      throw error;
+    }
+  }
+  return results;
 }
