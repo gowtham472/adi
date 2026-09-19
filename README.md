@@ -18,6 +18,8 @@
   <a href="docs/live-verification.md">Live verification record</a>
   ·
   <a href="https://github.com/gowtham472/adi/pull/2">Pull request review example</a>
+  ·
+  <a href="https://builder.aws.com/content/3JYBqTpr3WBD6fn8AznwGl7Hog3/my-deployment-succeeded-my-app-didnt-so-i-built-a-tool-that-asks-why">Build story on AWS Builder Center</a>
 </p>
 
 ADI answers one question that existing deployment tooling does not: **if I deploy this change, what else can it break?**
