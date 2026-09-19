@@ -2908,6 +2908,24 @@ a.example-card {
   font: 700 15px/1.3 var(--mono);
 }
 
+.empty-illustrated {
+  align-items: center;
+  padding: 36px 20px;
+  text-align: center;
+}
+
+.empty-illustrated img {
+  width: min(260px, 70%);
+  margin-bottom: 12px;
+}
+
+.verify-illustration {
+  flex: none;
+  width: 72px;
+  height: 92px;
+  object-fit: contain;
+}
+
 /* Analyze page */
 
 .analyze-page {

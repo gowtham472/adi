@@ -52,7 +52,7 @@ export function HomeView() {
 
   return (
     <div className="page-home">
-      <section className="hero">
+      <section className="hero hero-split">
         <div className="hero-text">
           <h1 className="display">
             <span className="keyword">if</span> change: trace_impact()
@@ -72,6 +72,7 @@ export function HomeView() {
             </a>
           </div>
         </div>
+        <img className="hero-illustration" src={`${import.meta.env.BASE_URL}illustrations/server-cluster.svg`} alt="" />
       </section>
 
       <section className="section" aria-labelledby="start-heading">

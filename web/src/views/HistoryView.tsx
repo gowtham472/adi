@@ -83,8 +83,8 @@ export function HistoryView() {
       )}
 
       {analyses?.length === 0 && (
-        <div className="empty-state">
-          <GitDiffIcon weight="bold" aria-hidden="true" />
+        <div className="empty-state empty-illustrated">
+          <img src={`${import.meta.env.BASE_URL}illustrations/server-status.svg`} alt="" />
           <h3>No analyses yet</h3>
           <p>
             <a href="#/analyze">Analyze a change</a> to see it here.

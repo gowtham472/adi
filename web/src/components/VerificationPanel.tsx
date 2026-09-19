@@ -88,9 +88,13 @@ export function VerificationPanel({ record, onVerified }: VerificationPanelProps
   return (
     <div className="verification">
       <section className="verify-card">
-        <span className="icon-tile large">
-          <PulseIcon weight="bold" aria-hidden="true" />
-        </span>
+        {verification === undefined ? (
+          <img className="verify-illustration" src={`${import.meta.env.BASE_URL}illustrations/code-deployed.svg`} alt="" />
+        ) : (
+          <span className="icon-tile large">
+            <PulseIcon weight="bold" aria-hidden="true" />
+          </span>
+        )}
         <div>
           <h3>Did the prediction hold?</h3>
           <p>
