@@ -33,10 +33,10 @@ CloudFormation reports `UPDATE_COMPLETE`. A change set lists the resources Cloud
 | | |
 |---|---|
 | Proven on real AWS | Four live runs against an ALB, ECS Fargate and RDS stack. A one-port typo was predicted as HIGH before deployment, then confirmed by CloudWatch: database connections 2 to 0, target errors 0 to about 290 a minute. Details in [docs/live-verification.md](docs/live-verification.md) |
-| Honest verification | Each prediction is checked afterwards and reported as `MATCHED`, `UNCONFIRMED` or `CONTRADICTED`. A flat signal is never read as confirmation |
+| Honest verification | Each prediction is checked automatically after the deployment and reported as `MATCHED`, `UNCONFIRMED` or `CONTRADICTED`. A flat signal is never read as confirmation |
 | Deterministic findings | Six rules decide every finding, and every fact cites its source. Claude on Amazon Bedrock explains findings; it never produces them |
 | Four ways in | Paste two templates, compare with a deployed stack, read a CloudFormation change set, or review a pull request on GitHub |
-| Built on AWS | Lambda, API Gateway, DynamoDB, Amplify Hosting, CloudFormation, CloudWatch and Amazon Bedrock, with a read only IAM role scoped to the analyzed stack and its logs |
+| Built on AWS | Lambda, API Gateway, DynamoDB, Amplify Hosting, EventBridge, Step Functions, CloudFormation, CloudWatch and Amazon Bedrock, with a read only IAM role scoped to the analyzed stack and its logs |
 | Tested | 141 automated tests, including an exact expected result for every scenario, run on every push |
 
 **Event:** WeMakeDevs x AWS First Commit, 17 to 20 September 2026
@@ -75,7 +75,7 @@ flowchart TD
     F --> B[Amazon Bedrock]
     B --> EX[Explanation and<br/>remediation]
     F --> V[Verification plan]
-    V --> CW[CloudWatch metrics<br/>and logs after deploy]
+    V --> CW[CloudWatch metrics and logs,<br/>read automatically after deploy]
     CW --> C[Predicted vs observed]
 ```
 
@@ -112,6 +112,7 @@ This section is the contract. Anything not listed under **In scope** is not buil
 | Verification | For the primary scenario, collect the declared CloudWatch signals before and after deployment and report `MATCHED`, `UNCONFIRMED` or `CONTRADICTED`. Signals are metrics, or log patterns counted per minute in a log group the stack creates. |
 | Web dashboard | An overview, an analysis workspace, the analysis itself (impact graph, findings, verification), the history of analyses and the rules. Deployed on Amplify Hosting with a public URL. |
 | Change set input | Analyze a CloudFormation change set already created on the stack: the proposed template comes from the change set, and CloudFormation's `Replacement: True` or `False` for each modified resource replaces the documented replacement table. `Conditional` leaves the table's answer. Reading never executes the change set. Added after the core build plan was complete. |
+| Automatic verification | When an update of the analyzed stack completes, EventBridge starts a Step Functions workflow that waits six minutes for CloudWatch data, then verifies every pending analysis of that stack. Choosing Verify deployment still works. Added after the core build plan was complete. |
 | Pull request review | A GitHub Actions workflow analyzes every CloudFormation template a pull request adds or modifies, comments with the findings, and fails the check at a configurable severity. Added after the core build plan was complete. |
 | Demo environment | One live ALB to ECS to RDS stack in a single region, deployed once and kept stable. |
 
@@ -176,6 +177,11 @@ flowchart TD
     L --> CWA[CloudWatch<br/>metrics and logs]
     CFN --> DEMO
     CWA --> DEMO
+    DEMO -.stack update completes.-> EB[EventBridge rule]
+    EB --> SF[Step Functions<br/>wait six minutes]
+    SF --> AV[Verification Lambda]
+    AV --> CWA
+    AV --> DD
 
     subgraph DEMO [Analyzed environment]
         ALB[Application Load Balancer] --> ECS[ECS Fargate service]
@@ -189,7 +195,9 @@ flowchart TD
 |---|---|
 | Amplify Hosting | Serves the dashboard and provides the public submission URL |
 | API Gateway | HTTP entry point for the analysis and verification endpoints |
-| Lambda | Runs the analysis pipeline and the verification pass, and a second function for explanations |
+| Lambda | Runs the analysis pipeline and the verification pass, a second function for explanations, and a third that verifies automatically |
+| EventBridge | Receives CloudFormation's stack status changes and starts verification when an update of the analyzed stack completes |
+| Step Functions | Waits six minutes for CloudWatch data after the update, then invokes the verification function |
 | DynamoDB | Stores analyses, findings and verification results |
 | Amazon Bedrock | Generates explanations from structured findings |
 | CloudWatch | Supplies the observed telemetry for verification: metrics, and matching lines in the stack's log groups |
@@ -237,6 +245,8 @@ sequenceDiagram
     A-->>D: HIGH, path sg-api to ecs-api to rds-primary,<br/>TCP/5432 ingress removed
     D->>CF: Deploy the change
     CF-->>D: UPDATE_COMPLETE
+    CF-->>A: Stack update event, through EventBridge
+    Note over A: Step Functions waits six minutes
     A->>CW: Collect declared signals
     CW-->>A: DatabaseConnections down, 5XX up,<br/>connection errors in logs
     A-->>D: Prediction MATCHED
@@ -269,7 +279,7 @@ Two npm workspaces, `engine` and `web`.
 │   │   │   ├── cloudwatch/       Signal collection for verification
 │   │   │   ├── bedrock/          Grounded prompt, input redaction, response validation
 │   │   │   └── dynamodb/         Persistence for analyses
-│   │   ├── api/                  Router, service operations and the two Lambda handlers
+│   │   ├── api/                  Router, service operations and the three Lambda handlers
 │   │   ├── report/               Markdown reports for the dashboard and pull requests
 │   │   └── review/               Finds and analyzes the templates a pull request changes
 │   └── scripts/                  Handler bundling, the local API server, the pull request review
@@ -363,7 +373,7 @@ New to AWS? [docs/aws-setup.md](docs/aws-setup.md) covers everything from an emp
    aws cloudformation deploy --template-file scenarios/01-rds-security-group/after.yaml --stack-name adi-demo --capabilities CAPABILITY_IAM --region ap-south-1
    ```
 
-6. Wait five minutes for connections to recycle and metrics to arrive, then choose Verify deployment in the analysis. Restore the healthy baseline afterwards with `npm run deploy:demo`.
+6. About six minutes after the update completes, ADI verifies by itself: EventBridge starts the verification workflow, and the open analysis shows the verdict when it lands. Choosing Verify deployment runs it on demand. Restore the healthy baseline afterwards with `npm run deploy:demo`; analyses that are already verified are left alone.
 
 ### Analyzing a change set
 
