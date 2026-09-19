@@ -197,7 +197,7 @@ sequenceDiagram
 
 The contrast that carries the demonstration: the CloudFormation change set for this edit lists the security group and four resources that reference it, every one as an in place modification with no warning. ADI reports the path to the database and names the signals to watch, before the deployment happens.
 
-This scenario has been run end to end against the live stack, from the change set through to verification: `DatabaseConnections` fell from 2 to 0, target 5XX responses rose from 0 to about 233 a minute, and connection errors in the application's logs rose from 0 to about 254 a minute. Status `MATCHED`.
+This scenario has been run end to end against the live stack, from the change set through to verification: `DatabaseConnections` fell from 2 to 0, target 5XX responses rose from 0 to about 291 a minute, and connection errors in the application's logs rose from 0 to about 246 a minute. Status `MATCHED`. [docs/live-verification.md](docs/live-verification.md) records every live run, its method, and the defects the runs exposed.
 
 Verification reports `UNCONFIRMED` whenever a predicted signal stays flat, rather than reading silence as confirmation. Scenario 02 shows it live: removing the secret permission from the task execution role verified `UNCONFIRMED`, with `HealthyHostCount` unchanged at 2, because running tasks already hold the secret and nothing fails until one restarts. Scenario 04 is a caution in the other direction: it was expected to come out unconfirmed, and verified live as `MATCHED`, because peak memory utilization did rise against the halved allocation, from 2.7% to 3.7%. A match confirms that the predicted signal moved, not that the change is dangerous, which is why the finding stays MEDIUM and states only the reduction.
 
@@ -244,6 +244,7 @@ Two npm workspaces, `engine` and `web`.
 ├── docs/
 │   ├── decisions/                One file per decision worth recording
 │   ├── aws-setup.md              From an empty AWS account to a deployed platform
+│   ├── live-verification.md      Every live run: predictions, measurements and verdicts
 │   └── deferred.md               Out of scope ideas, captured and not built
 └── .github/workflows/            CI, template validation, and the pull request review
 ```
