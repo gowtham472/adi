@@ -588,7 +588,6 @@ svg[class*='tone-'] {
   display: flex;
   flex-direction: column;
   gap: 32px;
-  max-width: 1060px;
   padding: 44px 48px 64px;
 }
 
@@ -3004,7 +3003,6 @@ svg[class*='tone-'] {
   display: flex;
   flex-direction: column;
   gap: 44px;
-  max-width: 1240px;
   padding: 44px 48px 64px;
 }
 
