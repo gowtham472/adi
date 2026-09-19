@@ -81,6 +81,10 @@ The pipeline is deterministic up to the Bedrock step. Rules, graph traversal and
 
 ### In the dashboard
 
+The overview: three ways to start, the six examples, and how ADI reads a change.
+
+![The dashboard overview with the three ways to start an analysis and the examples](docs/images/overview.png)
+
 The workspace: choose what the proposed change is compared against, load one of the six examples or paste a template, and analyze.
 
 ![The analysis workspace with the current and proposed templates side by side and the Analyze change button](docs/images/analyze.png)
