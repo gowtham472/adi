@@ -11,10 +11,13 @@ import { useEffect, useState } from 'react';
 import type { AnalysisSummary, Severity } from '@adi/engine/types';
 import { api, ApiError } from '../api/client.ts';
 import { SeverityBadge, StatusBadge } from '../components/Badges.tsx';
+import { Pagination } from '../components/Pagination.tsx';
 import { absoluteTime, relativeTime } from '../lib/format.ts';
 import { SEVERITY_ICONS } from '../lib/icons.tsx';
 
 type SeverityFilter = 'ALL' | Severity | 'NONE';
+
+const PAGE_SIZE = 8;
 
 const FILTERS: readonly { readonly id: SeverityFilter; readonly label: string }[] = [
   { id: 'ALL', label: 'All' },
@@ -48,6 +51,7 @@ export function HistoryView() {
   const [error, setError] = useState<string | undefined>();
   const [filter, setFilter] = useState<SeverityFilter>('ALL');
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     api.listAnalyses().then(setAnalyses, (caught: unknown) => {
@@ -56,6 +60,9 @@ export function HistoryView() {
   }, []);
 
   const visible = (analyses ?? []).filter((a) => matchesFilter(a, filter) && matchesQuery(a, query));
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <div className="page-single">
@@ -103,7 +110,7 @@ export function HistoryView() {
                     key={id}
                     type="button"
                     className={`chip ${filter === id ? 'active' : ''}`}
-                    onClick={() => { setFilter(id); }}
+                    onClick={() => { setFilter(id); setPage(1); }}
                     aria-pressed={filter === id}
                     disabled={count === 0 && id !== 'ALL'}
                   >
@@ -117,7 +124,7 @@ export function HistoryView() {
               <MagnifyingGlassIcon weight="bold" aria-hidden="true" />
               <input
                 value={query}
-                onChange={(e) => { setQuery(e.target.value); }}
+                onChange={(e) => { setQuery(e.target.value); setPage(1); }}
                 placeholder="Search by stack or ID"
                 aria-label="Search analyses"
               />
@@ -127,53 +134,56 @@ export function HistoryView() {
           {visible.length === 0 ? (
             <p className="empty">No analyses match these filters.</p>
           ) : (
-            <ul className="history-list stagger">
-              {visible.map((analysis) => {
-                const SeverityIcon =
-                  analysis.highestSeverity === undefined ? CloudCheckIcon : SEVERITY_ICONS[analysis.highestSeverity];
-                const tone = analysis.highestSeverity?.toLowerCase() ?? 'matched';
-                return (
-                  <li key={analysis.analysisId}>
-                    <a className="history-row" href={`#/analyses/${analysis.analysisId}`}>
-                      <span className={`severity-tile tone-${tone}`}>
-                        <SeverityIcon weight="fill" aria-hidden="true" />
-                      </span>
-                      <span className="history-main">
-                        <strong title={absoluteTime(analysis.createdAt)}>{relativeTime(analysis.createdAt)}</strong>
-                        <span className="muted">
-                          {analysis.stackName === undefined ? (
-                            <>
-                              <FileCodeIcon weight="bold" aria-hidden="true" /> Template comparison
-                            </>
+            <>
+              <ul className="history-list stagger" key={currentPage}>
+                {pageRows.map((analysis) => {
+                  const SeverityIcon =
+                    analysis.highestSeverity === undefined ? CloudCheckIcon : SEVERITY_ICONS[analysis.highestSeverity];
+                  const tone = analysis.highestSeverity?.toLowerCase() ?? 'matched';
+                  return (
+                    <li key={analysis.analysisId}>
+                      <a className="history-row" href={`#/analyses/${analysis.analysisId}`}>
+                        <span className={`severity-tile tone-${tone}`}>
+                          <SeverityIcon weight="fill" aria-hidden="true" />
+                        </span>
+                        <span className="history-main">
+                          <strong title={absoluteTime(analysis.createdAt)}>{relativeTime(analysis.createdAt)}</strong>
+                          <span className="muted">
+                            {analysis.stackName === undefined ? (
+                              <>
+                                <FileCodeIcon weight="bold" aria-hidden="true" /> Template comparison
+                              </>
+                            ) : (
+                              <>
+                                <CloudCheckIcon weight="bold" aria-hidden="true" /> Stack {analysis.stackName}
+                              </>
+                            )}
+                          </span>
+                        </span>
+                        <span className="history-metric" title="Changes">
+                          <GitDiffIcon weight="bold" aria-hidden="true" />
+                          {analysis.changeCount}
+                        </span>
+                        <span className="history-metric" title="Findings">
+                          <WarningOctagonIcon weight="bold" aria-hidden="true" />
+                          {analysis.findingCount}
+                        </span>
+                        <span className="history-badges">
+                          {analysis.highestSeverity !== undefined && <SeverityBadge severity={analysis.highestSeverity} />}
+                          {analysis.verificationStatus === undefined ? (
+                            <span className="badge tone-neutral">Not verified</span>
                           ) : (
-                            <>
-                              <CloudCheckIcon weight="bold" aria-hidden="true" /> Stack {analysis.stackName}
-                            </>
+                            <StatusBadge status={analysis.verificationStatus} />
                           )}
                         </span>
-                      </span>
-                      <span className="history-metric" title="Changes">
-                        <GitDiffIcon weight="bold" aria-hidden="true" />
-                        {analysis.changeCount}
-                      </span>
-                      <span className="history-metric" title="Findings">
-                        <WarningOctagonIcon weight="bold" aria-hidden="true" />
-                        {analysis.findingCount}
-                      </span>
-                      <span className="history-badges">
-                        {analysis.highestSeverity !== undefined && <SeverityBadge severity={analysis.highestSeverity} />}
-                        {analysis.verificationStatus === undefined ? (
-                          <span className="badge tone-neutral">Not verified</span>
-                        ) : (
-                          <StatusBadge status={analysis.verificationStatus} />
-                        )}
-                      </span>
-                      <CaretRightIcon weight="bold" className="caret" aria-hidden="true" />
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
+                        <CaretRightIcon weight="bold" className="caret" aria-hidden="true" />
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+              <Pagination page={currentPage} pageSize={PAGE_SIZE} total={visible.length} onPage={setPage} />
+            </>
           )}
         </>
       )}

@@ -2,7 +2,9 @@ import { ArrowRightIcon, CircleNotchIcon, CloudCheckIcon, FileCodeIcon, FlaskIco
 import { useState, type SyntheticEvent } from 'react';
 import type { AnalysisRecord } from '@adi/engine/types';
 import { api, ApiError, type CreateAnalysisInput } from '../api/client.ts';
+import { SeverityBadge } from '../components/Badges.tsx';
 import { CodeEditor } from '../components/CodeEditor.tsx';
+import { SearchSelect, type SearchSelectOption } from '../components/SearchSelect.tsx';
 import { BASELINE_TEMPLATE, EXAMPLES } from '../lib/examples.ts';
 
 export type AnalyzeMode = 'TEMPLATE' | 'STACK' | 'CHANGE_SET';
@@ -12,6 +14,14 @@ const MODES: readonly { readonly id: AnalyzeMode; readonly label: string; readon
   { id: 'STACK', label: 'Compare with a stack', icon: CloudCheckIcon },
   { id: 'CHANGE_SET', label: 'Read a change set', icon: ListChecksIcon },
 ];
+
+const EXAMPLE_OPTIONS: readonly SearchSelectOption[] = EXAMPLES.map((example) => ({
+  value: example.id,
+  label: example.label,
+  ...(example.ruleId === undefined ? {} : { code: example.ruleId }),
+  keywords: `${example.changedResource ?? ''} ${example.description}`,
+  ...(example.severity === undefined ? {} : { adornment: <SeverityBadge severity={example.severity} /> }),
+}));
 
 interface AnalyzeViewProps {
   readonly exampleId: string | undefined;
@@ -88,23 +98,15 @@ export function AnalyzeView({ exampleId, mode, onCreated }: AnalyzeViewProps) {
             ))}
           </div>
           {source !== 'CHANGE_SET' && (
-            <label className="example-picker">
-              <FlaskIcon weight="bold" aria-hidden="true" />
-              <span className="visually-hidden">Load an example</span>
-              <select
-                value={selectedId ?? ''}
-                onChange={(e) => { loadExample(e.target.value); }}
-              >
-                <option value="" disabled>
-                  Load an example
-                </option>
-                {EXAMPLES.map((example) => (
-                  <option key={example.id} value={example.id}>
-                    {example.ruleId}: {example.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SearchSelect
+              label="Example"
+              icon={FlaskIcon}
+              options={EXAMPLE_OPTIONS}
+              value={selectedId}
+              placeholder="Load an example"
+              searchPlaceholder="Search examples by rule or resource"
+              onChange={loadExample}
+            />
           )}
         </div>
       </header>

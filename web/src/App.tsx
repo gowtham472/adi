@@ -1,6 +1,7 @@
 import {
   BookOpenIcon,
   CaretDownIcon,
+  CaretLeftIcon,
   ClockCounterClockwiseIcon,
   FlaskIcon,
   GitDiffIcon,
@@ -8,7 +9,6 @@ import {
   ListChecksIcon,
   ListIcon,
   PlusIcon,
-  SidebarSimpleIcon,
   XIcon,
   type Icon,
 } from '@phosphor-icons/react';
@@ -80,6 +80,24 @@ function NavSection({ icon: SectionIcon, title, children }: { icon: Icon; title:
   );
 }
 
+/**
+ * Below 900 pixels the navigation is a drawer that always shows the full layer, whatever
+ * the collapse preference, so the hidden layer depends on the screen width as well.
+ */
+function useNarrowScreen(): boolean {
+  const query = '(max-width: 900px)';
+  const [narrow, setNarrow] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const onChange = () => { setNarrow(media.matches); };
+    media.addEventListener('change', onChange);
+    return () => {
+      media.removeEventListener('change', onChange);
+    };
+  }, []);
+  return narrow;
+}
+
 export function App() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
   const [lastCreated, setLastCreated] = useState<AnalysisRecord | undefined>();
@@ -88,6 +106,7 @@ export function App() {
     return stored === 'EXPANDED' || stored === 'COLLAPSED' ? stored : undefined;
   });
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const narrow = useNarrowScreen();
 
   useEffect(() => {
     const onChange = () => {
@@ -124,15 +143,6 @@ export function App() {
         <div className="topbar-start">
           <button
             type="button"
-            className="icon-button nav-toggle-desktop"
-            onClick={toggleCollapsed}
-            aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-            title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-          >
-            <SidebarSimpleIcon weight="bold" />
-          </button>
-          <button
-            type="button"
             className="icon-button nav-toggle-mobile"
             onClick={() => { setDrawerOpen(!drawerOpen); }}
             aria-label={drawerOpen ? 'Close navigation' : 'Open navigation'}
@@ -162,10 +172,20 @@ export function App() {
       </header>
 
       <div className={`frame ${collapsed ? 'nav-collapsed' : ''}`}>
+        <button
+          type="button"
+          className="nav-edge-toggle"
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+          aria-expanded={!collapsed}
+          title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+        >
+          <CaretLeftIcon weight="bold" />
+        </button>
         {drawerOpen && <button type="button" className="scrim" aria-label="Close navigation" onClick={() => { setDrawerOpen(false); }} />}
 
         <nav className={`sidenav ${drawerOpen ? 'drawer-open' : ''}`} aria-label="Main">
-          <div className="sidenav-full">
+          <div className="sidenav-full" inert={collapsed && !narrow}>
             <p className="sidenav-title">Change Analysis</p>
             <a href="#/analyze" className={`nav-link nav-primary ${isActive('ANALYZE') ? 'active' : ''}`}>
               <GitDiffIcon weight="bold" aria-hidden="true" />
@@ -209,11 +229,11 @@ export function App() {
             </NavSection>
           </div>
 
-          <div className="sidenav-rail">
+          <div className="sidenav-rail" inert={!collapsed || narrow}>
             <a href="#/" className={`rail-link ${route.view === 'HOME' ? 'active' : ''}`} title="Overview" aria-label="Overview">
               <HouseSimpleIcon weight="bold" />
             </a>
-            <a href="#/analyze" className={`rail-link ${isActive('ANALYZE') ? 'active' : ''}`} title="Analyze a change" aria-label="Analyze a change">
+            <a href="#/analyze" className={`rail-link ${route.view === 'ANALYZE' ? 'active' : ''}`} title="Analyze a change" aria-label="Analyze a change">
               <GitDiffIcon weight="bold" />
             </a>
             <a href="#/analyses" className={`rail-link ${route.view === 'HISTORY' ? 'active' : ''}`} title="Analyses" aria-label="Analyses">
@@ -222,18 +242,6 @@ export function App() {
             <a href="#/rules" className={`rail-link ${route.view === 'RULES' ? 'active' : ''}`} title="Rules" aria-label="Rules">
               <BookOpenIcon weight="bold" />
             </a>
-            <span className="rail-divider" aria-hidden="true" />
-            {EXAMPLES.map((example, index) => (
-              <a
-                key={example.id}
-                href={`#/new/${example.id}`}
-                className={`rail-link rail-example ${example.severity === undefined ? '' : `tone-${example.severity.toLowerCase()}`} ${activeExample === example.id ? 'active' : ''}`}
-                title={`Example: ${example.label}`}
-                aria-label={`Example: ${example.label}`}
-              >
-                {String(index + 1).padStart(2, '0')}
-              </a>
-            ))}
           </div>
         </nav>
 
