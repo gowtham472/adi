@@ -11,6 +11,8 @@ export interface Deployment {
   readonly startedAt: Date;
   readonly completedAt: Date;
   readonly status: string;
+  /** When the next stack update started, if one followed. Observation stops there. */
+  readonly nextUpdateAt?: Date;
 }
 
 const STACK_TYPE = 'AWS::CloudFormation::Stack';
@@ -49,9 +51,17 @@ export function findDeployment(events: readonly StackEvent[], stackName: string,
   if (end === undefined) {
     return { kind: 'IN_PROGRESS', startedAt: start.timestamp };
   }
+  const next = stackEvents.find(
+    (e) => e.status === 'UPDATE_IN_PROGRESS' && e.timestamp.getTime() > end.timestamp.getTime(),
+  );
   return {
     kind: 'FOUND',
-    deployment: { startedAt: start.timestamp, completedAt: end.timestamp, status: end.status },
+    deployment: {
+      startedAt: start.timestamp,
+      completedAt: end.timestamp,
+      status: end.status,
+      ...(next === undefined ? {} : { nextUpdateAt: next.timestamp }),
+    },
   };
 }
 
@@ -60,10 +70,16 @@ const WINDOW_MS = 15 * 60 * 1000;
 /**
  * The baseline is the fifteen minutes before the update started. The observation window
  * starts when the update completed and runs for fifteen minutes or until now, whichever
- * is earlier, so verifying soon after a deployment compares against a shorter window.
+ * is earlier, so verifying soon after a deployment compares against a shorter window. It
+ * also stops where the next stack update began: a rollback or any later change would
+ * otherwise be measured as the effect of this one.
  */
 export function verificationWindows(deployment: Deployment, now: Date): { baseline: TimeWindow; observed: TimeWindow } {
-  const observedEnd = Math.min(deployment.completedAt.getTime() + WINDOW_MS, now.getTime());
+  const observedEnd = Math.min(
+    deployment.completedAt.getTime() + WINDOW_MS,
+    now.getTime(),
+    deployment.nextUpdateAt?.getTime() ?? Number.POSITIVE_INFINITY,
+  );
   return {
     baseline: {
       start: new Date(deployment.startedAt.getTime() - WINDOW_MS).toISOString(),

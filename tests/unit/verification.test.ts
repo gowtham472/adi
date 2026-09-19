@@ -106,6 +106,25 @@ describe('findDeployment', () => {
     expect(lookup.kind).toBe('NOT_STARTED');
   });
 
+  it('stops observing where the next stack update, such as a rollback, began', () => {
+    const lookup = findDeployment(
+      [
+        at('2026-09-18T17:26:20Z', 'UPDATE_IN_PROGRESS'),
+        at('2026-09-18T17:29:53Z', 'UPDATE_COMPLETE'),
+        at('2026-09-18T17:37:00Z', 'UPDATE_IN_PROGRESS'),
+        at('2026-09-18T17:40:10Z', 'UPDATE_COMPLETE'),
+      ],
+      'adi-demo',
+      new Date('2026-09-18T17:25:57Z'),
+    );
+    if (lookup.kind !== 'FOUND') {
+      throw new Error('expected a deployment');
+    }
+    expect(lookup.deployment.nextUpdateAt).toEqual(new Date('2026-09-18T17:37:00Z'));
+    const windows = verificationWindows(lookup.deployment, new Date('2026-09-19T06:46:22Z'));
+    expect(windows.observed).toEqual({ start: '2026-09-18T17:29:53.000Z', end: '2026-09-18T17:37:00.000Z' });
+  });
+
   it('builds a fifteen minute baseline and caps the observation window at now', () => {
     const windows = verificationWindows(
       { startedAt: new Date('2026-09-19T10:10:00Z'), completedAt: new Date('2026-09-19T10:12:00Z'), status: 'UPDATE_COMPLETE' },
