@@ -12,7 +12,7 @@ notes.
 |---|---|
 | Environment | Stack `adi-demo` in `ap-south-1`: Application Load Balancer, two ECS Fargate tasks, RDS PostgreSQL `db.t4g.micro` (see `infrastructure/demo/baseline.yaml`) |
 | Traffic | `npm run demo:load` at 5 requests per second, running for at least 15 minutes before each deployment |
-| Procedure | Analyze against the deployed stack, deploy the scenario's template, wait at least five minutes, verify, restore the baseline with `npm run deploy:demo` |
+| Procedure | Analyze against the deployed stack, deploy the scenario's template, and verify at least five minutes later, then restore the baseline with `npm run deploy:demo`. The runs of 18 and 19 September before 17:00 UTC were verified on demand; since then verification also runs automatically, six minutes after the update completes |
 | Baseline window | The 15 minutes before the stack update started |
 | Observed window | From update completion for up to 15 minutes, ending early at the time of verification or at the start of the next stack update |
 | Aggregation | One minute datapoints, whole minutes only. Counts use `Sum` with missing minutes as zero; log patterns are matching lines per minute |
@@ -53,6 +53,19 @@ What the results show:
 
 Scenarios 03, 05 and 06 have not been run live. Their findings are covered by the scenario
 tests in `tests/scenarios`, which assert the exact expected output of every scenario.
+
+## Automatic verification run
+
+After automatic verification was deployed (decision 0005), scenario 01 was run again with
+nobody choosing Verify deployment.
+
+| Step | Time (19 Sep, UTC) | What happened |
+|---|---|---|
+| Analysis `3d27f5a1` against `adi-demo` | 17:19 | NET-SG-001, HIGH |
+| Stack update | 17:20 | `UPDATE_COMPLETE`. EventBridge started the verification workflow at 17:20:24 |
+| Step Functions wait | 17:20:24 to 17:26:25 | The six minute Wait state, then the verification function |
+| Verdict stored | 17:26:25 | `MATCHED`, marked automatic: `DatabaseConnections` 2 to 0, target 5XX 0 to 231.4 a minute, connection errors in logs 0 to 241.6 a minute |
+| Baseline restored | 17:27 | The restore is itself a stack update and started a second workflow run, which left the verified analysis untouched |
 
 ## Earlier readings and what they exposed
 
