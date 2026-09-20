@@ -115,8 +115,8 @@ Resources:
       VpcId: !Ref Vpc
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
+          FromPort: 5433
+          ToPort: 5433
           SourceSecurityGroupId: !GetAtt AppSecurityGroup.GroupId
           Description: PostgreSQL from application tasks
 
