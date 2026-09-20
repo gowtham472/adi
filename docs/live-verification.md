@@ -67,6 +67,20 @@ nobody choosing Verify deployment.
 | Verdict stored | 17:26:25 | `MATCHED`, marked automatic: `DatabaseConnections` 2 to 0, target 5XX 0 to 231.4 a minute, connection errors in logs 0 to 241.6 a minute |
 | Baseline restored | 17:27 | The restore is itself a stack update and started a second workflow run, which left the verified analysis untouched |
 
+A second automatic run was made on 20 September, with traffic at 10 requests per second
+from two load generators.
+
+| Step | Time (20 Sep, UTC) | What happened |
+|---|---|---|
+| Analysis `1975336c` of change set `scenario-01` | 11:04 | NET-SG-001, HIGH |
+| Change set executed in the console | 11:18:37 to 11:18:48 | `UPDATE_COMPLETE` |
+| Step Functions run | 11:18:48 to 11:24:50 | The six minute Wait state, then the verification function |
+| Verdict stored | 11:24:50 | `MATCHED`, marked automatic: `DatabaseConnections` 2.07 to 0, target 5XX 0 to 578.4 a minute, connection errors in logs 0 to 483.3 a minute |
+| Baseline restored | 11:32 | The application returned to `200` responses within a minute |
+
+The 5XX and log counts are about twice those of the 19 September run because the load was
+doubled. The direction of every signal, and so the verdict, is the same.
+
 ## Earlier readings and what they exposed
 
 The first verification of each run, made at the time, gave these readings. The
